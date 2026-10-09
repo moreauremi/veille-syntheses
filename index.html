@@ -3,102 +3,122 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
     <meta name="referrer" content="no-referrer">
     <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#1e3c8c">
     <title>Synthèses de veille · RémiOS</title>
     <link rel="icon" href="data:,">
+    <link rel="preload" href="fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="style.css">
     <script type="module" src="app.js"></script>
   </head>
   <body>
-    <header class="bar">
-      <p class="bar-title"><span class="prompt">remi@remios</span>:<span class="path">~/veille</span>$ synthèses</p>
-      <nav class="bar-links" id="bar-links" hidden>
-        <a id="site-link" href="#" target="_blank" rel="noopener noreferrer">Voir sur le site ↗</a>
-        <button type="button" class="link" id="logout">Se déconnecter</button>
+    <header class="tui-bar">
+      <span class="tui-bar-tty">RémiOS 1.0 <span class="tui-bar-extra">(tty3)</span></span>
+      <span class="tui-bar-title">Synthèses de veille</span>
+      <nav class="tui-bar-links" id="bar-links" aria-label="Session" hidden>
+        <a class="tui-bar-link" id="site-link" href="#" target="_blank" rel="noopener noreferrer">Voir sur le site ↗</a>
+        <button type="button" class="tui-bar-link" id="logout">Se déconnecter</button>
       </nav>
     </header>
 
-    <!-- Connexion : un jeton GitHub, gardé dans ce navigateur -->
-    <main class="login" id="login" hidden>
-      <form class="login-box" id="login-form">
-        <h1>Synthèses de veille</h1>
-        <p class="hint">Tableau de bord de l'onglet « Mes synthèses » du portfolio.</p>
+    <main class="tui-stage">
+      <!-- Connexion : un jeton GitHub, gardé dans ce navigateur -->
+      <section class="tui-box login-box" id="login" aria-labelledby="login-title" hidden>
+        <h1 class="tui-box-title" id="login-title">Connexion</h1>
+        <form class="tui-box-inner" id="login-form">
+          <p class="intro">Tableau de bord de l'onglet « Mes synthèses » du portfolio.</p>
 
-        <label for="token">Jeton GitHub</label>
-        <input id="token" name="token" type="password" autocomplete="off" spellcheck="false" required>
-        <label class="check"><input id="remember" type="checkbox" checked> Rester connecté sur cet appareil</label>
-        <button type="submit" class="primary">Se connecter</button>
-        <p class="status" id="login-status" role="alert"></p>
+          <label class="field">
+            <span>Jeton GitHub</span>
+            <input id="token" name="token" type="password" autocomplete="off" spellcheck="false" required>
+          </label>
+          <label class="field-check"><input id="remember" type="checkbox" checked> Rester connecté sur cet appareil</label>
 
-        <details class="help">
-          <summary>Créer le jeton</summary>
-          <ol>
-            <li>Ouvrir <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">la création d'un jeton GitHub ↗</a> (jeton <em>fine-grained</em>).</li>
-            <li><strong>Expiration</strong> : 1 an.</li>
-            <li><strong>Repository access</strong> : <em>Only select repositories</em> → <code>moreauremi.github.io</code>.</li>
-            <li><strong>Repository permissions</strong> : <strong>Contents</strong> et <strong>Actions</strong> en <em>Read and write</em>, rien d'autre.</li>
-            <li><strong>Generate token</strong>, puis le coller ici.</li>
-          </ol>
-          <p>Le jeton reste dans ce navigateur et n'est envoyé qu'à GitHub. « Se déconnecter » l'efface.</p>
-        </details>
-      </form>
-    </main>
+          <p class="status" id="login-status" role="alert"></p>
 
-    <!-- Tableau de bord -->
-    <main class="dashboard" id="dashboard" hidden>
-      <aside class="list-panel" aria-labelledby="list-title">
-        <div class="panel-head">
-          <h2 id="list-title">Publiées <span class="count" id="count"></span></h2>
-          <button type="button" id="new">+ Nouvelle</button>
-        </div>
-        <p class="hint" id="empty" hidden>Aucune synthèse pour l'instant : le site affiche « À venir ».</p>
-        <ol class="list" id="list"></ol>
-      </aside>
+          <details class="help">
+            <summary>Créer le jeton</summary>
+            <ol>
+              <li>Ouvrir <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener noreferrer">la création d'un jeton GitHub ↗</a> (jeton <em>fine-grained</em>).</li>
+              <li><strong>Expiration</strong> : une date dans un an (<em>Custom</em>).</li>
+              <li><strong>Repository access</strong> : <em>Only select repositories</em> → <code>moreauremi.github.io</code>.</li>
+              <li><strong>Repository permissions</strong> : <strong>Contents</strong> et <strong>Actions</strong> en <em>Read and write</em>, rien d'autre.</li>
+              <li><strong>Generate token</strong>, puis le coller ici.</li>
+            </ol>
+            <p>Le jeton reste dans ce navigateur et n'est envoyé qu'à GitHub. « Se déconnecter » l'efface.</p>
+          </details>
 
-      <section class="editor" aria-labelledby="editor-title">
-        <form id="editor-form" novalidate>
-          <h2 id="editor-title">Nouvelle synthèse</h2>
-
-          <label for="titre">Titre</label>
-          <input id="titre" name="titre" type="text" maxlength="200" autocomplete="off" required
-            placeholder="Octobre 2026 : NIS 2 arrive dans les PME industrielles">
-
-          <label for="texte">Texte</label>
-          <p class="hint" id="texte-hint">
-            Ce que vous retenez des actualités, ce que ça change pour une PME industrielle, ce que vous en faites.
-            Markdown : <code>**gras**</code>, listes <code>- élément</code>, liens <code>[texte](https://…)</code>, sous-titres <code>###</code>.
-            Sélectionnez un passage pour ne reformuler que lui.
-          </p>
-          <textarea id="texte" name="texte" rows="16" required aria-describedby="texte-hint"></textarea>
-
-          <div class="toolbar">
-            <button type="button" id="rephrase">Reformuler avec l'IA</button>
-            <button type="button" id="preview-toggle" aria-expanded="false" aria-controls="preview">Aperçu</button>
-            <span class="spacer"></span>
-            <button type="button" id="cancel">Annuler</button>
-            <button type="submit" class="primary" id="save">Publier</button>
+          <div class="tui-actions">
+            <button type="submit" class="tui-btn tui-btn--primary">Se connecter</button>
           </div>
-
-          <p class="status" id="status" role="status" aria-live="polite"></p>
-
-          <section class="suggestion" id="suggestion" hidden aria-labelledby="suggestion-title">
-            <h3 id="suggestion-title">Proposition de l'IA</h3>
-            <p class="hint" id="suggestion-scope"></p>
-            <div class="suggestion-text" id="suggestion-text"></div>
-            <div class="toolbar">
-              <button type="button" class="primary" id="accept">Remplacer</button>
-              <button type="button" id="reject">Garder mon texte</button>
-            </div>
-          </section>
-
-          <section class="preview" id="preview" hidden aria-label="Aperçu tel qu'affiché sur le site">
-            <p class="hint">Aperçu, avec le même rendu que le site :</p>
-            <div class="prose" id="preview-content"></div>
-          </section>
         </form>
       </section>
+
+      <!-- Tableau de bord : la liste à gauche, l'éditeur à droite -->
+      <div class="dashboard" id="dashboard" hidden>
+        <section class="tui-box list-box" aria-labelledby="list-title">
+          <h2 class="tui-box-title" id="list-title">Publiées <span id="count"></span></h2>
+          <div class="tui-box-inner">
+            <p class="intro" id="empty" hidden>Aucune synthèse pour l'instant : le site affiche « À venir ».</p>
+            <ol class="list" id="list"></ol>
+          </div>
+          <div class="tui-actions">
+            <button type="button" class="tui-btn" id="new">Nouvelle synthèse</button>
+          </div>
+        </section>
+
+        <section class="tui-box editor-box" aria-labelledby="editor-title">
+          <h2 class="tui-box-title" id="editor-title">Nouvelle synthèse</h2>
+          <form class="tui-box-inner" id="editor-form" novalidate>
+            <label class="field">
+              <span>Titre</span>
+              <input id="titre" name="titre" type="text" maxlength="200" autocomplete="off" required
+                placeholder="Octobre 2026 : NIS 2 arrive dans les PME industrielles">
+            </label>
+
+            <label class="field">
+              <span>Texte</span>
+              <textarea id="texte" name="texte" rows="16" required aria-describedby="texte-hint"></textarea>
+            </label>
+            <p class="hint" id="texte-hint">
+              Ce que vous retenez des actualités, ce que ça change pour une PME industrielle, ce que vous en faites.
+              Markdown : <code>**gras**</code>, listes <code>- élément</code>, liens <code>[texte](https://…)</code>, sous-titres <code>###</code>.
+              Sélectionnez un passage pour ne reformuler que lui.
+            </p>
+
+            <section class="panel suggestion" id="suggestion" hidden aria-labelledby="suggestion-title">
+              <h3 class="panel-title" id="suggestion-title">Proposition de l'IA</h3>
+              <p class="hint" id="suggestion-scope"></p>
+              <div class="suggestion-text" id="suggestion-text"></div>
+              <div class="tui-actions">
+                <button type="button" class="tui-btn tui-btn--primary" id="accept">Remplacer</button>
+                <button type="button" class="tui-btn" id="reject">Garder mon texte</button>
+              </div>
+            </section>
+
+            <section class="panel" id="preview" hidden aria-labelledby="preview-title">
+              <h3 class="panel-title" id="preview-title">Aperçu, tel qu'affiché sur le site</h3>
+              <div class="prose" id="preview-content"></div>
+            </section>
+
+            <p class="status" id="status" role="status" aria-live="polite"></p>
+
+            <div class="tui-actions">
+              <button type="button" class="tui-btn" id="rephrase">Reformuler avec l'IA</button>
+              <button type="button" class="tui-btn" id="preview-toggle" aria-expanded="false" aria-controls="preview">Aperçu</button>
+              <button type="button" class="tui-btn" id="cancel">Annuler</button>
+              <button type="submit" class="tui-btn tui-btn--primary" id="save">Publier</button>
+            </div>
+          </form>
+        </section>
+      </div>
     </main>
+
+    <p class="tui-hints">Cmd+S / Ctrl+S publier · sélection + « Reformuler » : ce passage seulement · Cmd+Z / Ctrl+Z annuler</p>
+    <footer class="tui-footer">
+      <a href="https://remim.me">remim.me</a> · <a href="https://github.com/moreauremi/veille-syntheses">code source</a>
+    </footer>
   </body>
 </html>

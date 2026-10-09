@@ -129,9 +129,14 @@ function renderList() {
       const item = document.createElement('li');
       item.className = state.editing?.index === index ? 'item current' : 'item';
 
+      // Numéro de rubrique, comme dans le menu de RémiOS
+      const key = document.createElement('span');
+      key.className = 'item-key';
+      key.setAttribute('aria-hidden', 'true');
+      key.textContent = String(index + 1);
       const title = document.createElement('p');
       title.className = 'item-title';
-      title.textContent = synthese.titre;
+      title.append(key, synthese.titre);
 
       const excerpt = document.createElement('p');
       excerpt.className = 'item-excerpt';
@@ -140,8 +145,8 @@ function renderList() {
       const actions = document.createElement('div');
       actions.className = 'item-actions';
       actions.append(
-        button('Modifier', () => edit(index), `Modifier « ${synthese.titre} »`),
-        button('Supprimer', () => remove(index), `Supprimer « ${synthese.titre} »`, 'danger'),
+        button('Modifier', () => edit(index), `Modifier « ${synthese.titre} »`, 'tui-btn tui-btn--small'),
+        button('Supprimer', () => remove(index), `Supprimer « ${synthese.titre} »`, 'tui-btn tui-btn--small danger'),
       );
 
       item.append(title, excerpt, actions);
@@ -215,7 +220,6 @@ function resetEditor() {
 
 function renderEditorTitle() {
   $('editor-title').textContent = state.editing ? 'Modifier la synthèse' : 'Nouvelle synthèse';
-  $('save').textContent = state.editing ? 'Enregistrer et publier' : 'Publier';
 }
 
 function isDirty() {
@@ -414,7 +418,6 @@ $('preview-toggle').addEventListener('click', () => {
   const open = $('preview').hidden;
   $('preview').hidden = !open;
   $('preview-toggle').setAttribute('aria-expanded', String(open));
-  $('preview-toggle').textContent = open ? "Masquer l'aperçu" : 'Aperçu';
   refreshPreview();
 });
 

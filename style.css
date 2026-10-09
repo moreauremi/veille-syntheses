@@ -1,22 +1,70 @@
-/* Tableau de bord des synthèses : console sombre, comme le démarrage de RémiOS
-   (couleurs reprises de src/styles/tokens.css, dans le dépôt du site). */
+/* ==========================================================================
+   Tableau de bord des synthèses : l'interface whiptail de RémiOS
+   --------------------------------------------------------------------------
+   Mêmes couleurs, police et composants que le portfolio (dépôt du site :
+   src/styles/tokens.css, tui.css, blocks.css) : fond bleu, boîtes grises en
+   relief avec ombre portée, titre « [ … ] » posé sur la bordure, boutons
+   « < … > », barre du haut et aide clavier en bas.
+   ========================================================================== */
+
+/* --- Police IBM Plex Mono, auto-hébergée (licence : fonts/OFL.txt) --- */
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/ibm-plex-mono-600.woff2') format('woff2');
+}
+
+/* --- Variables (valeurs du site) --- */
 
 :root {
-  color-scheme: dark;
-  --screen: #000000;
-  --panel: #101317;
-  --field: #171b21;
-  --text: #c9ced6;
-  --text-bright: #ffffff;
-  --dim: #8a929c;
-  --ok: #4fd16b;
-  --warn: #f2c14e;
-  --info: #6cb8ff;
-  --err: #ff8a80;
-  --line: #333333;
-  --mono: 'IBM Plex Mono', ui-monospace, 'DejaVu Sans Mono', Menlo, Consolas, monospace;
-  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --tui-bg: #1e3c8c;          /* fond bleu de l'écran */
+  --tui-box: #cfcfcf;         /* boîte grise */
+  --tui-ink: #101010;         /* texte dans la boîte */
+  --tui-muted: #3d3d3d;       /* texte secondaire dans la boîte (contraste 8:1) */
+  --tui-sel: #1e3c8c;         /* élément sélectionné, titres, liens */
+  --tui-sel-ink: #ffffff;
+  --tui-sel-key: #ffd76a;     /* numéro de l'élément sélectionné */
+  --tui-title: #8a1c1c;       /* titre des boîtes et numéros */
+  --tui-ok: #175c2a;          /* « [  OK  ] » sur la boîte (contraste 5:1) */
+  --tui-bar-ink: #e8ecf5;
+  --tui-bar-rule: rgb(255 255 255 / 0.25);
+  --tui-hint: #c9d3ec;
+  --tui-bevel-light: #ffffff;
+  --tui-bevel-dark: #5a5a5a;
+  --tui-inner-border: #6a6a6a;
+  --tui-shadow: #000000;
+  --tui-field-bg: #ffffff;
+  --tui-field-border: #5a5a5a;
+  --warn: #f2c14e;            /* contour de focus sur le fond bleu */
+
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'DejaVu Sans Mono', Menlo, Consolas, monospace;
+  --font-size: 0.875rem;
+  --font-size-small: 0.8125rem;
+  --line-height: 1.45;
+  --gutter: 16px;
+  --shadow-offset: 14px;
+  --focus-ring: 2px solid var(--warn);
 }
+
+@media (max-width: 720px) {
+  :root {
+    --font-size: 0.8125rem;
+    --shadow-offset: 8px;
+  }
+}
+
+/* --- Base --- */
 
 *,
 *::before,
@@ -24,376 +72,562 @@
   box-sizing: border-box;
 }
 
+html {
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
-  background: var(--screen);
-  color: var(--text);
-  font-family: var(--mono);
-  font-size: 0.875rem;
-  line-height: 1.5;
+  background: var(--tui-bg);
+  color: var(--tui-bar-ink);
+  font-family: var(--font-mono);
+  font-size: var(--font-size);
+  line-height: var(--line-height);
 }
 
 body.busy {
   cursor: progress;
 }
 
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+strong,
+b {
+  font-weight: 600;
+}
+
 [hidden] {
   display: none !important;
 }
 
-h1,
-h2,
-h3 {
-  margin: 0;
-  color: var(--text-bright);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-a {
-  color: var(--info);
-}
-
-code {
-  color: var(--text-bright);
-}
-
 :focus-visible {
-  outline: 2px solid var(--warn);
+  outline: var(--focus-ring);
   outline-offset: 2px;
 }
 
 /* --- Barre du haut --- */
 
-.bar {
+.tui-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 24px;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  gap: 4px 16px;
+  min-height: 48px;
+  padding: 6px var(--gutter);
+  border-bottom: 1px solid var(--tui-bar-rule);
+  color: var(--tui-bar-ink);
 }
 
-.bar-title {
-  margin: 0;
-}
-
-.prompt {
-  color: var(--ok);
-}
-
-.path {
-  color: var(--info);
-}
-
-.bar-links {
+.tui-bar-links {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-left: auto;
+}
+
+/* Liens de la barre : du texte cliquable, comme l'entrée [tty2] du site */
+.tui-bar-link {
+  min-height: 32px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--tui-hint);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+a.tui-bar-link {
+  display: inline-flex;
   align-items: center;
 }
 
-/* --- Champs et boutons --- */
-
-label {
-  display: block;
-  margin-top: 16px;
-  color: var(--text-bright);
-  font-weight: 600;
-}
-
-input,
-textarea {
-  width: 100%;
-  margin-top: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--field);
-  color: var(--text-bright);
-  font: inherit;
-}
-
-textarea {
-  min-height: 18rem;
-  resize: vertical;
-  font-family: var(--sans);
-  font-size: 1rem;
-  line-height: 1.6;
-}
-
-textarea[readonly] {
-  opacity: 0.6;
-}
-
-button {
-  padding: 8px 14px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--field);
-  color: var(--text-bright);
-  font: inherit;
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: var(--dim);
-}
-
-button.primary {
-  border-color: var(--ok);
-  background: var(--ok);
-  color: var(--screen);
-  font-weight: 600;
-}
-
-button.danger {
-  color: var(--err);
-}
-
-button.link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--info);
+.tui-bar-link:hover {
+  color: var(--tui-bar-ink);
   text-decoration: underline;
 }
 
-body.busy button {
-  opacity: 0.6;
-  pointer-events: none;
-}
+/* --- Zone centrale --- */
 
-.hint {
-  margin: 4px 0 0;
-  color: var(--dim);
-}
-
-.status {
-  min-height: 1.5em;
-  margin: 12px 0 0;
-}
-
-.status.ok {
-  color: var(--ok);
-}
-
-.status.info {
-  color: var(--info);
-}
-
-.status.err {
-  color: var(--err);
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.spacer {
+.tui-stage {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px var(--gutter) 32px;
 }
 
-/* --- Connexion --- */
+/* --- Boîte de dialogue --- */
 
-.login {
-  display: grid;
-  place-items: center;
-  padding: 48px 16px;
+.tui-box {
+  --box-pad: 22px;
+  width: min(900px, 100%);
+  padding: var(--box-pad) 26px 20px;
+  background: var(--tui-box);
+  color: var(--tui-ink);
+  /* Relief : bords clairs en haut à gauche, sombres en bas à droite */
+  border: 2px solid;
+  border-color: var(--tui-bevel-light) var(--tui-bevel-dark) var(--tui-bevel-dark) var(--tui-bevel-light);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--tui-shadow);
+  /* Champs et cases dessinés en version claire */
+  color-scheme: light;
+  /* Sur fond gris, le contour de focus jaune ne se verrait pas : noir ici */
+  --focus-ring: 2px solid var(--tui-ink);
+}
+
+/* Titre posé sur la bordure du haut, avec un fond gris qui « coupe » la
+   bordure. Crochets décoratifs ajoutés ici (ignorés par les lecteurs
+   d'écran), pour que le script puisse changer le titre librement. */
+.tui-box-title {
+  width: fit-content;
+  max-width: 100%;
+  margin: calc(-1 * var(--box-pad) - 1px - 0.725em) auto 12px;
+  padding: 0 10px;
+  background: var(--tui-box);
+  color: var(--tui-title);
+  font-size: inherit;
+  font-weight: 600;
+  text-align: center;
+}
+
+.tui-box-title::before {
+  content: '[ ' / '';
+}
+
+.tui-box-title::after {
+  content: ' ]' / '';
+}
+
+.tui-box-inner {
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--tui-inner-border);
 }
 
 .login-box {
-  width: 100%;
-  max-width: 24rem;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel);
+  width: min(560px, 100%);
 }
 
-.login-box button {
-  width: 100%;
-  margin-top: 16px;
-}
+/* --- Boutons « < … > » --- */
 
-/* --- Tableau de bord : liste à gauche, éditeur à droite --- */
-
-.dashboard {
-  display: grid;
-  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
-  gap: 24px;
-  max-width: 80rem;
-  margin: 0 auto;
-  padding: 24px 16px;
-}
-
-@media (max-width: 52rem) {
-  .dashboard {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.list-panel,
-.editor {
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--panel);
-}
-
-.list-panel {
-  align-self: start;
-}
-
-.panel-head {
+.tui-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px 20px;
+  margin-top: 18px;
+}
+
+.tui-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  min-height: 32px;
+  padding: 6px 14px;
+  border: 1px solid var(--tui-inner-border);
+  background: transparent;
+  color: var(--tui-ink);
+  cursor: pointer;
+  text-decoration: none;
 }
 
-.count {
-  color: var(--dim);
-  font-weight: 400;
+.tui-btn::before {
+  content: '<\00a0' / '';
 }
 
-.list {
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
+.tui-btn::after {
+  content: '\00a0>' / '';
 }
 
-.item {
-  padding: 12px 0;
-  border-top: 1px solid var(--line);
-}
-
-.item.current .item-title {
-  color: var(--warn);
-}
-
-.item.current .item-title::before {
-  content: '> ';
-}
-
-.item-title {
-  margin: 0;
-  color: var(--text-bright);
+.tui-btn--primary {
+  border-color: var(--tui-sel);
+  background: var(--tui-sel);
+  color: var(--tui-sel-ink);
   font-weight: 600;
-  overflow-wrap: anywhere;
 }
 
-.item-excerpt {
-  margin: 4px 0 8px;
-  color: var(--dim);
-  font-size: 0.8125rem;
-  overflow-wrap: anywhere;
+.tui-btn:hover {
+  text-decoration: underline;
 }
 
-.item-actions {
-  display: flex;
-  gap: 8px;
+/* Bouton à bascule enfoncé (aperçu affiché) */
+.tui-btn[aria-expanded='true'] {
+  border-color: var(--tui-sel);
+  background: rgb(30 60 140 / 0.14);
+  color: var(--tui-sel);
+  font-weight: 600;
 }
 
-.item-actions button {
-  padding: 4px 10px;
-  font-size: 0.8125rem;
+.tui-btn--primary:focus-visible {
+  outline: 2px solid var(--tui-sel-key);
+  outline-offset: -4px;
 }
 
-/* --- Proposition de l'IA et aperçu --- */
-
-.suggestion,
-.preview {
-  margin-top: 16px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+.tui-btn--small {
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: var(--font-size-small);
 }
 
-.suggestion {
-  border-color: var(--info);
+.tui-btn.danger {
+  color: var(--tui-title);
 }
 
-.suggestion-text {
-  margin-top: 8px;
-  padding: 12px;
-  border-radius: 4px;
-  background: var(--field);
-  color: var(--text-bright);
-  font-family: var(--sans);
-  font-size: 1rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+body.busy .tui-btn {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
-.prose {
-  font-family: var(--sans);
-  font-size: 1rem;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
+/* --- Textes et champs (comme le formulaire de contact du site) --- */
+
+.intro {
+  margin: 0 0 12px;
 }
 
-.prose h2 {
-  margin: 12px 0 8px;
-  font-family: var(--mono);
-  font-size: 1.0625rem;
+.hint {
+  margin: 6px 0 0;
+  color: var(--tui-muted);
+  font-size: var(--font-size-small);
 }
 
-.prose h3 {
-  margin: 16px 0 8px;
-  font-family: var(--mono);
-}
-
-.prose img {
-  max-width: 100%;
-}
-
-.image-ph {
-  color: var(--dim);
-  font-style: italic;
-}
-
-/* --- Connexion : case à cocher et aide pour créer le jeton --- */
-
-label.check {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+.field {
+  display: grid;
+  gap: 4px;
   margin-top: 12px;
-  color: var(--text);
-  font-weight: 400;
 }
 
-label.check input {
-  width: auto;
+.field:first-child {
+  margin-top: 0;
+}
+
+.field > span {
+  color: var(--tui-sel);
+  font-weight: 600;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--tui-field-border);
+  border-radius: 0;
+  background: var(--tui-field-bg);
+  color: var(--tui-ink);
+}
+
+.field textarea {
+  min-height: 18rem;
+  resize: vertical;
+}
+
+.field textarea[readonly] {
+  opacity: 0.6;
+}
+
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.field-check input {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0;
+  accent-color: var(--tui-sel);
+}
+
+a {
+  color: var(--tui-sel);
+  font-weight: 600;
+  text-underline-offset: 2px;
+}
+
+code {
+  font-family: inherit;
+  font-weight: 600;
+}
+
+/* Messages, façon journal de démarrage : [  OK  ], [ÉCHEC], [ .... ] */
+.status {
+  margin: 14px 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* Sans message, la zone reste dans la page (lecteurs d'écran) sans prendre de place */
+.status:empty {
   margin: 0;
 }
 
+.status.ok::before,
+.status.err::before,
+.status.info::before {
+  font-weight: 600;
+}
+
+.status.ok::before {
+  content: '[  OK  ] ' / '';
+  color: var(--tui-ok);
+}
+
+.status.err::before {
+  content: '[ÉCHEC] ' / '';
+  color: var(--tui-title);
+}
+
+.status.info::before {
+  content: '[ .... ] ' / '';
+  color: var(--tui-sel);
+}
+
+.status.err {
+  color: var(--tui-title);
+}
+
+/* Aide pour créer le jeton */
 .help {
-  margin-top: 16px;
-  color: var(--dim);
+  margin-top: 14px;
 }
 
 .help summary {
-  color: var(--info);
+  color: var(--tui-sel);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .help ol {
-  padding-left: 1.25rem;
+  margin: 8px 0;
+  padding-left: 1.4em;
 }
 
 .help li + li {
   margin-top: 4px;
 }
 
-.help strong,
-.help code {
-  color: var(--text-bright);
+.help p {
+  margin: 0;
+  color: var(--tui-muted);
+  font-size: var(--font-size-small);
+}
+
+/* --- Tableau de bord : deux boîtes côte à côte --- */
+
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(0, 2fr);
+  gap: 40px calc(var(--shadow-offset) + 24px);
+  align-items: start;
+  width: min(1240px, 100%);
+}
+
+.dashboard .tui-box {
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Liste des synthèses : chaque synthèse dans un fin cadre, comme les
+   rubriques du menu ; celle qu'on modifie en barre bleue. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  padding: 8px 10px;
+  border: 1px solid var(--tui-inner-border);
+}
+
+.item-title {
+  margin: 0;
+  color: var(--tui-sel);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.item-key {
+  margin-right: 10px;
+  color: var(--tui-title);
+}
+
+.item-excerpt {
+  margin: 4px 0 8px;
+  font-size: var(--font-size-small);
+  overflow-wrap: anywhere;
+}
+
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.item.current {
+  border-color: var(--tui-sel);
+  background: var(--tui-sel);
+  color: var(--tui-sel-ink);
+}
+
+.item.current .item-title {
+  color: var(--tui-sel-ink);
+}
+
+.item.current .item-key {
+  color: var(--tui-sel-key);
+}
+
+.item.current .tui-btn {
+  border-color: var(--tui-hint);
+  color: var(--tui-sel-ink);
+  --focus-ring: 2px solid var(--tui-sel-key);
+}
+
+/* --- Proposition de l'IA et aperçu --- */
+
+.panel {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--tui-inner-border);
+}
+
+.suggestion {
+  border: 2px solid var(--tui-sel);
+}
+
+.panel-title {
+  margin: 0 0 8px;
+  color: var(--tui-sel);
+  font-size: inherit;
+  font-weight: 600;
+}
+
+.suggestion-text {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--tui-field-border);
+  background: var(--tui-field-bg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Texte Markdown, comme dans les rubriques du site */
+.prose {
+  overflow-wrap: anywhere;
+}
+
+.prose h2,
+.prose h3 {
+  margin: 1.4em 0 0.5em;
+  color: var(--tui-sel);
+  font-size: 1em;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose > :last-child {
+  margin-bottom: 0;
+}
+
+.prose p,
+.prose ul,
+.prose ol {
+  margin: 0 0 0.8em;
+}
+
+.prose p {
+  max-width: 75ch;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.4em;
+}
+
+.prose li {
+  margin-bottom: 0.25em;
+}
+
+.image-ph {
+  color: var(--tui-muted);
+  font-style: italic;
+}
+
+/* --- Aide clavier et pied de page --- */
+
+.tui-hints {
+  margin: 0;
+  padding: 0 var(--gutter) 8px;
+  color: var(--tui-hint);
+  font-size: var(--font-size-small);
+  text-align: center;
+}
+
+.tui-footer {
+  padding: 0 var(--gutter) 18px;
+  color: var(--tui-hint);
+  font-size: var(--font-size-small);
+  text-align: center;
+}
+
+.tui-footer a {
+  color: var(--tui-hint);
+  font-weight: 400;
+}
+
+.tui-footer a:hover {
+  color: var(--tui-bar-ink);
+}
+
+/* Téléphones et tablettes : pas de clavier, pas d'aide clavier */
+@media (hover: none) {
+  .tui-hints {
+    display: none;
+  }
+}
+
+/* --- Petits écrans --- */
+
+@media (max-width: 720px) {
+  .tui-bar-title,
+  .tui-bar-extra {
+    display: none;
+  }
+
+  .tui-stage {
+    padding-top: 32px;
+  }
+
+  .tui-box {
+    --box-pad: 18px;
+    padding-inline: 12px;
+  }
+
+  .tui-box-inner {
+    padding: 12px;
+  }
+
+  .tui-actions {
+    gap: 10px 12px;
+  }
 }

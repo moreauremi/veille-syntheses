@@ -50,12 +50,13 @@ L'IA utilise le secret `COPILOT_GITHUB_TOKEN` du dépôt du site, déjà en plac
 
 ```
 index.html           structure de la page : connexion, liste, éditeur (et la CSP)
-style.css            console sombre, couleurs de RémiOS
+style.css            interface whiptail de RémiOS : fond bleu, boîtes grises en relief, boutons « < … > »
 app.js               comportement de la page
 config.js            dépôt du site, fichier des synthèses, workflow de reformulation
 github.js            API GitHub : lecture et écriture du fichier, reformulation
 syntheses.js         format de syntheses.md (une synthèse par titre « ## »)
 apercu.js            aperçu Markdown, au plus près du rendu du site
+fonts/               IBM Plex Mono (400 et 600), la police du portfolio, licence OFL
 vendor/              marked (conversion Markdown, licence MIT)
 test/                tests (npm test) : format, échanges avec une fausse API GitHub, aperçu
 CNAME                domaine de la page pour GitHub Pages
@@ -73,4 +74,5 @@ Attention : même en local, **Publier écrit sur le dépôt du site et le republ
 ## Crédits
 
 - [marked](https://github.com/markedjs/marked) (licence MIT), copié dans `vendor/` : conversion Markdown, la même que celle du site.
+- [IBM Plex Mono](https://github.com/IBM/plex) (licence SIL Open Font License, `fonts/OFL.txt`), copiée du portfolio.
 - Code sous licence MIT (voir `LICENSE`).
