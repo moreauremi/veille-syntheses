@@ -10,7 +10,7 @@ const TOKEN = 'bon-jeton';
 // Fausse API : le fichier des synthèses, les versions brouillons, et un
 // « workflow » qui écrit sa réponse dans le brouillon au bout de `polls` lectures
 function fakeGitHub({ answer = (texte) => ({ etat: 'ok', texte: `[reformulé] ${texte}` }), polls = 2 } = {}) {
-  const gh = { source: 'Texte du fichier\n', sha: 'v0', commits: [], releases: new Map(), dispatches: [], deletedRuns: [] };
+  const gh = { source: 'Texte du fichier\n', sha: 'v0', commits: [], releases: new Map(), dispatches: [], deletedRuns: [], demandes: [] };
   const json = (status, data) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
   const empty = () => new Response(null, { status: 204 });
 
@@ -19,7 +19,7 @@ function fakeGitHub({ answer = (texte) => ({ etat: 'ok', texte: `[reformulé] ${
     if (headers.Authorization !== `Bearer ${TOKEN}`) return json(401, { message: 'Bad credentials' });
     const data = body ? JSON.parse(body) : null;
 
-    if (path === '/contents/content/pages/syntheses.md') {
+    if (path === '/contents/content/veille/virtualisation/syntheses.md') {
       // GitHub renvoie le base64 coupé en lignes de 60 caractères
       if (method === 'GET') return json(200, { content: toBase64(gh.source).replace(/(.{60})/g, '$1\n'), sha: gh.sha });
       if (data.sha !== gh.sha) return json(409, { message: 'does not match' });
@@ -35,7 +35,11 @@ function fakeGitHub({ answer = (texte) => ({ etat: 'ok', texte: `[reformulé] ${
     }
     const release = gh.releases.get(Number(path.match(/^\/releases\/(\d+)$/)?.[1]));
     if (release && method === 'GET') {
-      if (++release.reads === polls) release.body = JSON.stringify(answer(JSON.parse(release.body).texte));
+      if (++release.reads === polls) {
+        const demande = JSON.parse(release.body);
+        gh.demandes.push(demande);
+        release.body = JSON.stringify(answer(demande.texte));
+      }
       return json(200, release);
     }
     if (release && method === 'DELETE') return gh.releases.delete(release.id) && empty();
@@ -55,32 +59,33 @@ test('base64 : accents, emoji et long texte relus à l’identique', () => {
   assert.equal(fromBase64(toBase64(text)), text);
 });
 
-test('lecture puis écriture du fichier ; version périmée refusée', async () => {
+test('lecture puis écriture du fichier d’un sujet ; version périmée refusée', async () => {
   const gh = fakeGitHub();
   const client = createClient(TOKEN, { fetch: gh.fetch, ...quick });
-  const file = await client.readFile();
+  const file = await client.readFile('virtualisation');
   assert.deepEqual(file, { source: 'Texte du fichier\n', version: 'v0' });
 
-  const saved = await client.writeFile('Nouveau texte é\n', 'v0', 'veille: test');
+  const saved = await client.writeFile('virtualisation', 'Nouveau texte é\n', 'v0', 'veille: test');
   assert.deepEqual(saved, { version: 'v1', commit: 'https://github.com/commit/v1' });
   assert.equal(gh.source, 'Nouveau texte é\n');
 
-  await assert.rejects(client.writeFile('Autre', 'v0', 'veille: test'), { status: 409 });
+  await assert.rejects(client.writeFile('virtualisation', 'Autre', 'v0', 'veille: test'), { status: 409 });
   assert.equal(gh.commits.length, 1);
 });
 
 test('jeton refusé : erreur 401 qui dit quoi faire', async () => {
   const client = createClient('mauvais', { fetch: fakeGitHub().fetch, ...quick });
-  await assert.rejects(client.readFile(), (error) => error.status === 401 && /Jeton refusé/.test(error.message));
+  await assert.rejects(client.readFile('virtualisation'), (error) => error.status === 401 && /Jeton refusé/.test(error.message));
 });
 
 test('reformulation : brouillon, workflow lancé, réponse lue, brouillon supprimé', async () => {
   const gh = fakeGitHub();
   const client = createClient(TOKEN, { fetch: gh.fetch, ...quick });
   const waits = [];
-  const texte = await client.rephrase('ma phrase', (seconds) => waits.push(seconds));
+  const texte = await client.rephrase('ma phrase', 'virtualisation', (seconds) => waits.push(seconds));
 
   assert.equal(texte, '[reformulé] ma phrase');
+  assert.deepEqual(gh.demandes, [{ texte: 'ma phrase', sujet: 'virtualisation' }], 'le sujet accompagne le passage');
   assert.equal(waits.length, 2);
   assert.deepEqual(gh.dispatches, [{ ref: 'main', inputs: { demande: '100' } }]);
   assert.equal(gh.releases.size, 0, 'brouillon supprimé');
@@ -91,7 +96,7 @@ test('reformulation : brouillon, workflow lancé, réponse lue, brouillon suppri
 test('reformulation : erreur de l’IA affichée, brouillon supprimé', async () => {
   const gh = fakeGitHub({ answer: () => ({ etat: 'erreur', message: 'quota Copilot épuisé.' }) });
   const client = createClient(TOKEN, { fetch: gh.fetch, ...quick });
-  await assert.rejects(client.rephrase('ma phrase'), { status: 502, message: 'Reformulation impossible : quota Copilot épuisé.' });
+  await assert.rejects(client.rephrase('ma phrase', 'virtualisation'), { status: 502, message: 'Reformulation impossible : quota Copilot épuisé.' });
   assert.equal(gh.releases.size, 0);
   await settle();
 });
@@ -99,7 +104,7 @@ test('reformulation : erreur de l’IA affichée, brouillon supprimé', async ()
 test('reformulation : sans réponse, abandon au bout du délai', async () => {
   const gh = fakeGitHub({ polls: Infinity });
   const client = createClient(TOKEN, { fetch: gh.fetch, pollInterval: 1, rephraseTimeout: 30 });
-  await assert.rejects(client.rephrase('ma phrase'), { status: 504 });
+  await assert.rejects(client.rephrase('ma phrase', 'virtualisation'), { status: 504 });
   assert.equal(gh.releases.size, 0);
   await settle();
 });

@@ -5,18 +5,20 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SITE } from './config.js?v=4';
-import { createClient } from './github.js?v=4';
-import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=4';
-import { renderPreview } from './apercu.js?v=4';
+import { SUJETS, pageDuSujet } from './config.js?v=6';
+import { createClient } from './github.js?v=6';
+import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=6';
+import { renderPreview } from './apercu.js?v=6';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';
+const SUJET_KEY = 'syntheses-sujet'; // dernier sujet ouvert, retrouvé à la visite suivante
 const CONFLICT =
   "Le fichier des synthèses a changé entre-temps (depuis VS Code ou un autre onglet). La liste vient d'être rechargée : vérifiez-la, votre texte est conservé, puis enregistrez à nouveau.";
 
 const state = {
   client: null,
+  sujet: storedSujet(), // sujet de veille affiché (identifiant, voir config.js)
   version: null, // empreinte (sha) du fichier sur GitHub, à jour après chaque enregistrement
   syntheses: [],
   editing: null, // synthèse en cours de modification : { index, titre } ; null = nouvelle
@@ -53,6 +55,16 @@ function forgetToken() {
   }
 }
 
+function storedSujet() {
+  let id = null;
+  try {
+    id = localStorage.getItem(SUJET_KEY);
+  } catch {
+    // stockage indisponible : premier sujet
+  }
+  return SUJETS.some((s) => s.id === id) ? id : SUJETS[0].id;
+}
+
 // --- Connexion -------------------------------------------------------------------
 
 function showLogin(message = '') {
@@ -65,17 +77,79 @@ function showLogin(message = '') {
   $('token').focus();
 }
 
-// Le jeton est vérifié en lisant le fichier des synthèses
+// Le jeton est vérifié en lisant le fichier des synthèses du sujet
 async function connect(token) {
   const client = createClient(token);
-  const data = await client.readFile();
+  const data = await client.readFile(state.sujet);
   state.client = client;
   $('login').hidden = true;
   $('dashboard').hidden = false;
   $('bar-links').hidden = false;
-  $('site-link').href = SITE;
+  renderSujets();
   applyFile(data);
   if (!state.editing && !$('texte').value) startNew();
+}
+
+// --- Choix du sujet de veille -------------------------------------------------------
+
+// Barre des sujets (onglets) : celui affiché en barre bleue, comme le menu de RémiOS
+function renderSujets() {
+  $('sujets').replaceChildren(
+    ...SUJETS.map((sujet, index) => {
+      const tab = document.createElement('button');
+      const current = sujet.id === state.sujet;
+      tab.type = 'button';
+      tab.className = 'sujet';
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(current));
+      tab.tabIndex = current ? 0 : -1;
+      tab.dataset.sujet = sujet.id;
+      const key = document.createElement('span');
+      key.className = 'item-key';
+      key.setAttribute('aria-hidden', 'true');
+      key.textContent = String(index + 1);
+      tab.append(key, sujet.nom);
+      tab.addEventListener('click', () => openSujet(sujet.id));
+      return tab;
+    }),
+  );
+  $('site-link').href = pageDuSujet(state.sujet);
+}
+
+// Au clavier : ← et → passent d'un sujet à l'autre
+$('sujets').addEventListener('keydown', (event) => {
+  const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+  if (!step) return;
+  event.preventDefault();
+  const index = SUJETS.findIndex((s) => s.id === state.sujet);
+  openSujet(SUJETS[(index + step + SUJETS.length) % SUJETS.length].id, { focus: true });
+});
+
+async function openSujet(id, { focus = false } = {}) {
+  if (id === state.sujet || state.busy) return;
+  if (isDirty() && !confirm('Des modifications ne sont pas enregistrées. Changer de sujet quand même ?')) return;
+  const previous = state.sujet;
+  state.sujet = id;
+  try {
+    localStorage.setItem(SUJET_KEY, id);
+  } catch {
+    // stockage indisponible : le choix vaut jusqu'au rechargement
+  }
+  renderSujets();
+  if (focus) $('sujets').querySelector(`[data-sujet="${id}"]`).focus();
+  let loaded = false;
+  await run('Chargement des synthèses…', async () => {
+    const data = await state.client.readFile(id);
+    state.editing = null;
+    applyFile(data);
+    startNew();
+    loaded = true;
+  });
+  // Échec du chargement : retour au sujet précédent, dont la liste est encore affichée
+  if (!loaded && state.client) {
+    state.sujet = previous;
+    renderSujets();
+  }
 }
 
 $('login-form').addEventListener('submit', async (event) => {
@@ -120,7 +194,7 @@ function applyData({ version, syntheses }) {
 }
 
 async function reload() {
-  applyFile(await state.client.readFile());
+  applyFile(await state.client.readFile(state.sujet));
 }
 
 function renderList() {
@@ -262,11 +336,11 @@ document.addEventListener('keydown', (event) => {
 // a changé depuis l'affichage de la liste, rien n'est écrit (pas d'écrasement
 // d'une modification faite ailleurs).
 async function commit(edit) {
-  const current = await state.client.readFile();
+  const current = await state.client.readFile(state.sujet);
   if (current.version !== state.version) throw Object.assign(new Error(CONFLICT), { status: 409 });
   const doc = parseSyntheses(current.source);
   const message = edit(doc.syntheses);
-  const saved = await state.client.writeFile(serializeSyntheses(doc), current.version, message);
+  const saved = await state.client.writeFile(state.sujet, serializeSyntheses(doc), current.version, message);
   return { version: saved.version, commit: saved.commit, syntheses: doc.syntheses };
 }
 
@@ -287,11 +361,11 @@ async function save() {
     const data = await commit((syntheses) => {
       if (index === undefined) {
         syntheses.unshift(synthese);
-        return `veille: nouvelle synthèse « ${synthese.titre} »`;
+        return `veille(${state.sujet}): nouvelle synthèse « ${synthese.titre} »`;
       }
       checkIndex(syntheses, index);
       syntheses[index] = synthese;
-      return `veille: synthèse « ${synthese.titre} » modifiée`;
+      return `veille(${state.sujet}): synthèse « ${synthese.titre} » modifiée`;
     });
     state.editing = { index: index ?? 0, titre: synthese.titre };
     applyData(data);
@@ -310,7 +384,7 @@ async function remove(index) {
     const data = await commit((syntheses) => {
       checkIndex(syntheses, index);
       const [removed] = syntheses.splice(index, 1);
-      return `veille: synthèse « ${removed.titre} » supprimée`;
+      return `veille(${state.sujet}): synthèse « ${removed.titre} » supprimée`;
     });
     const wasEditing = state.editing?.index === index;
     applyData(data);
@@ -372,7 +446,7 @@ $('rephrase').addEventListener('click', async () => {
   area.readOnly = true;
   const waiting = "GitHub prépare une machine pour l'IA : 30 secondes à une minute";
   await run(`Reformulation en cours… (${waiting})`, async () => {
-    const texte = await state.client.rephrase(passage.trim(), (seconds) => {
+    const texte = await state.client.rephrase(passage.trim(), state.sujet, (seconds) => {
       setStatus(`Reformulation en cours… ${seconds} s (${waiting})`, 'info');
     });
     // Garder les espaces et retours à la ligne qui entouraient le passage

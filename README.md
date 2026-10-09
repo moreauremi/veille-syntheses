@@ -1,6 +1,8 @@
 # Synthèses de veille — tableau de bord
 
-Page privée pour écrire l'onglet « Mes synthèses » de mon portfolio [remim.me](https://remim.me/#/veille), sans ouvrir l'éditeur de code : **https://veille.remim.me**
+Page privée pour écrire l'onglet « Mes synthèses » de chacun des trois sujets de veille de mon portfolio [remim.me](https://remim.me/#/veille) (cybersécurité, virtualisation, facturation électronique), sans ouvrir l'éditeur de code : **https://veille.remim.me**
+
+- **Choix du sujet** en haut de la page (← et → au clavier) ; le dernier sujet ouvert est retenu.
 
 - **Liste, ajout, modification, suppression** des synthèses. Une nouvelle synthèse se place en haut (la plus récente d'abord), avec un titre qui commence par la date du jour (`09/10/2026 - …`).
 - **Reformuler avec l'IA** : sélectionner un passage (sans sélection : tout le texte). L'IA propose une version plus claire, à accepter (**Remplacer**) ou non (**Garder mon texte**) ; Cmd+Z / Ctrl+Z annule un remplacement. Consignes données à l'IA : garder le sens, les faits, les chiffres, les noms et les liens, ne rien ajouter.
@@ -14,7 +16,7 @@ Une page 100 % statique, publiée par GitHub Pages : pas de serveur, rien à hé
 ```
 Navigateur ──► api.github.com ──► dépôt moreauremi.github.io
 (veille.remim.me)                   │
-                                    ├─ content/pages/syntheses.md   lu, puis réécrit : un commit par enregistrement
+                                    ├─ content/veille/<sujet>/syntheses.md   lu, puis réécrit : un commit par enregistrement
                                     │                               ──► deploy.yml republie remim.me
                                     │
                                     └─ « Reformuler avec l'IA » :
@@ -52,9 +54,9 @@ L'IA utilise le secret `COPILOT_GITHUB_TOKEN` du dépôt du site, déjà en plac
 index.html           structure de la page : connexion, liste, éditeur (et la CSP)
 style.css            interface whiptail de RémiOS : fond bleu, boîtes grises en relief, boutons « < … > »
 app.js               comportement de la page
-config.js            dépôt du site, fichier des synthèses, workflow de reformulation
+config.js            dépôt du site, sujets de veille (à garder identiques à veille.sujets du site), workflow
 github.js            API GitHub : lecture et écriture du fichier, reformulation
-syntheses.js         format de syntheses.md (une synthèse par titre « ## »)
+syntheses.js         format des fichiers syntheses.md (une synthèse par titre « ## »)
 apercu.js            aperçu Markdown, au plus près du rendu du site
 fonts/               IBM Plex Mono (400 et 600), la police du portfolio, licence OFL
 vendor/              marked (conversion Markdown, licence MIT)

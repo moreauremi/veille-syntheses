@@ -441,6 +441,50 @@ code {
   }
 }
 
+/* Barre des sujets de veille, au-dessus des deux boîtes : chaque sujet dans
+   un fin cadre, celui affiché en barre bleue (comme le menu de RémiOS) */
+.sujets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  grid-column: 1 / -1;
+}
+
+.sujet {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--tui-hint);
+  background: transparent;
+  color: var(--tui-bar-ink);
+  cursor: pointer;
+}
+
+.sujet:hover {
+  text-decoration: underline;
+}
+
+.sujet .item-key {
+  color: var(--tui-sel-key);
+}
+
+.sujet[aria-selected='true'] {
+  border-color: var(--tui-box);
+  background: var(--tui-box);
+  color: var(--tui-ink);
+  font-weight: 600;
+}
+
+.sujet[aria-selected='true'] .item-key {
+  color: var(--tui-title);
+}
+
+body.busy .sujet {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 /* Liste des synthèses : chaque synthèse dans un fin cadre, comme les
    rubriques du menu ; celle qu'on modifie en barre bleue. */
 .list {

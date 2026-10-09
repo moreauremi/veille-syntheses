@@ -10,8 +10,8 @@
     <title>Synthèses de veille · RémiOS</title>
     <link rel="icon" href="data:,">
     <link rel="preload" href="fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=4">
-    <script type="module" src="app.js?v=4"></script>
+    <link rel="stylesheet" href="style.css?v=6">
+    <script type="module" src="app.js?v=6"></script>
   </head>
   <body>
     <header class="tui-bar">
@@ -56,8 +56,9 @@
         </form>
       </section>
 
-      <!-- Tableau de bord : la liste à gauche, l'éditeur à droite -->
+      <!-- Tableau de bord : les sujets en haut, la liste à gauche, l'éditeur à droite -->
       <div class="dashboard" id="dashboard" hidden>
+        <div class="sujets" id="sujets" role="tablist" aria-label="Sujet de veille"></div>
         <section class="tui-box list-box" aria-labelledby="list-title">
           <h2 class="tui-box-title" id="list-title">Publiées <span id="count"></span></h2>
           <div class="tui-box-inner">
@@ -83,7 +84,7 @@
               <textarea id="texte" name="texte" rows="16" required aria-describedby="texte-hint"></textarea>
             </label>
             <p class="hint" id="texte-hint">
-              Ce que vous retenez des actualités, ce que ça change pour une PME industrielle, ce que vous en faites.
+              Ce que vous retenez des actualités, ce que ça change pour les entreprises, ce que vous en faites.
               Markdown : <code>**gras**</code>, listes <code>- élément</code>, liens <code>[texte](https://…)</code>, sous-titres <code>###</code>.
               Sélectionnez un passage pour ne reformuler que lui.
             </p>

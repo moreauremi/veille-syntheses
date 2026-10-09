@@ -4,16 +4,16 @@
 // La page n'a pas de serveur : toutes les requêtes partent vers api.github.com
 // avec le jeton saisi à la connexion, qui ne va nulle part ailleurs.
 //
-//   - lecture et écriture de content/pages/syntheses.md (API « contents ») :
-//     chaque écriture est un commit sur la branche du site, qui relance sa
-//     publication ;
+//   - lecture et écriture des synthèses d'un sujet de veille,
+//     content/veille/<sujet>/syntheses.md (API « contents ») : chaque écriture
+//     est un commit sur la branche du site, qui relance sa publication ;
 //   - reformulation par l'IA, par le workflow reformuler.yml du dépôt du site :
 //     la page dépose le passage dans une version (release) brouillon, visible
 //     seulement des personnes qui ont le droit d'écrire dans le dépôt, lance le
 //     workflow, attend sa réponse dans le même brouillon, puis le supprime.
 // =============================================================================
 
-import { BRANCHE, DEPOT, FICHIER, WORKFLOW } from './config.js?v=4';
+import { BRANCHE, DEPOT, WORKFLOW, fichier } from './config.js?v=6';
 
 const API = `https://api.github.com/repos/${DEPOT}`;
 const TAG_PREFIX = 'reformulation-';
@@ -61,16 +61,16 @@ export function createClient(token, { fetch = globalThis.fetch.bind(globalThis),
   }
 
   return {
-    // Fichier des synthèses → { source, version }
-    async readFile() {
-      const data = await request('GET', `/contents/${FICHIER}?ref=${encodeURIComponent(BRANCHE)}`);
+    // Fichier des synthèses d'un sujet → { source, version }
+    async readFile(sujet) {
+      const data = await request('GET', `/contents/${fichier(sujet)}?ref=${encodeURIComponent(BRANCHE)}`);
       return { source: fromBase64(data.content), version: data.sha };
     },
 
     // Nouveau contenu → { version, commit }. GitHub refuse (409) si le fichier
     // n'est plus à la version `version` : rien n'est écrasé.
-    async writeFile(source, version, message) {
-      const data = await request('PUT', `/contents/${FICHIER}`, {
+    async writeFile(sujet, source, version, message) {
+      const data = await request('PUT', `/contents/${fichier(sujet)}`, {
         message,
         content: toBase64(source),
         sha: version,
@@ -79,14 +79,15 @@ export function createClient(token, { fetch = globalThis.fetch.bind(globalThis),
       return { version: data.content.sha, commit: data.commit.html_url };
     },
 
-    // Passage → passage reformulé par l'IA. `onWait(secondes)` est appelé à
-    // chaque lecture de la réponse, pour afficher l'attente.
-    async rephrase(texte, onWait = () => {}) {
+    // Passage → passage reformulé par l'IA, avec des consignes adaptées au
+    // sujet de veille. `onWait(secondes)` est appelé à chaque lecture de la
+    // réponse, pour afficher l'attente.
+    async rephrase(texte, sujet, onWait = () => {}) {
       const release = await request('POST', '/releases', {
         tag_name: `${TAG_PREFIX}${randomId()}`,
         target_commitish: BRANCHE,
         name: 'Reformulation en cours (tableau de bord des synthèses)',
-        body: JSON.stringify({ texte }),
+        body: JSON.stringify({ texte, sujet }),
         draft: true,
       });
       try {
