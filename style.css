@@ -365,15 +365,11 @@ code {
   overflow-wrap: anywhere;
 }
 
-/* Sans message, la zone reste dans la page (lecteurs d'écran) sans prendre de
-   place, et sans préfixe « [ÉCHEC] » ou « [  OK  ] » orphelin */
+/* Sans message, la zone reste dans la page (lecteurs d'écran) sans prendre de place */
 .status:empty {
   margin: 0;
 }
 
-.status:empty::before {
-  content: none;
-}
 
 .status.ok::before,
 .status.err::before,
@@ -398,6 +394,12 @@ code {
 
 .status.err {
   color: var(--tui-title);
+}
+
+/* Sans message, pas de préfixe orphelin (après les règles des préfixes,
+   pour l'emporter sur elles) */
+.status:empty::before {
+  content: none;
 }
 
 /* Aide pour créer le jeton */
@@ -483,6 +485,31 @@ code {
 
 .sujet[aria-selected='true'] .item-key {
   color: var(--tui-title);
+}
+
+/* Régularité : « synthèse il y a 12 j » sous le nom du sujet ; en retard
+   (plus de 21 jours, ou aucune) : marqué d'un liseré rouge */
+.sujet {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.sujet-age {
+  font-size: 0.75rem;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.sujet-age:empty {
+  display: none;
+}
+
+.sujet.late {
+  border-left: 4px solid #ff8a80;
+}
+
+.sujet.late[aria-selected='true'] {
+  border-left-color: var(--tui-title);
 }
 
 body.busy .sujet {
@@ -838,5 +865,86 @@ body.busy .sujet {
 
 .page-count {
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* --- Actualités du sujet (sources de la synthèse) --- */
+
+.news-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.news-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--tui-inner-border);
+}
+
+.news-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.news-check input {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0.15em 0 0;
+  accent-color: var(--tui-sel);
+}
+
+.news-title {
+  color: var(--tui-ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.news-item:has(input:checked) {
+  border-color: var(--tui-sel);
+  background: rgb(30 60 140 / 0.08);
+}
+
+.news-meta {
+  grid-column: 1;
+  margin: 0 0 0 calc(1.1em + 8px);
+  color: var(--tui-muted);
+  font-size: var(--font-size-small);
+}
+
+.news-item > .tui-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+body.busy .news-check {
+  pointer-events: none;
+}
+
+/* Choix de la période des visites : le bouton de la période affichée est enfoncé */
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.periods .tui-btn::before,
+.periods .tui-btn::after {
+  content: none;
+}
+
+.periods .tui-btn[aria-pressed='true'] {
+  border-color: var(--tui-sel);
+  background: var(--tui-sel);
+  color: var(--tui-sel-ink);
   font-weight: 600;
 }

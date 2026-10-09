@@ -10,7 +10,7 @@
 // géométrie du graphique (testée sans navigateur, voir test/stats.test.js).
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=8';
+import { GOATCOUNTER } from './config.js?v=10';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -35,7 +35,9 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
 
   return {
     // Les `days` derniers jours, aujourd'hui compris → { days: [{ day, count }],
-    // total, today, pages: [{ path, count }] }. Les jours sans visite valent 0.
+    // bars (par jour, ou par semaine au-delà de 31 jours), total, today,
+    // pages: [{ path, count }], refs: [{ name, count }] (provenance des
+    // visiteurs ; nom vide = sans site d'origine). Les jours sans visite valent 0.
     async load(days = 30) {
       const list = lastDays(today, days);
       // Heures pleines, en UTC : du premier jour 0 h au lendemain du dernier 0 h
@@ -43,20 +45,23 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
         start: `${list[0]}T00:00:00Z`,
         end: `${isoDay(new Date(Date.parse(`${list.at(-1)}T00:00:00Z`) + DAY))}T00:00:00Z`,
       };
-      const [totals, hits] = await Promise.all([
+      const [totals, hits, refs] = await Promise.all([
         request('stats/total', range),
         request('stats/hits', { ...range, limit: '5' }),
+        request('stats/toprefs', { ...range, limit: '6' }),
       ]);
       const byDay = new Map((totals.stats ?? []).map((s) => [s.day, s.daily ?? 0]));
       const series = list.map((day) => ({ day, count: byDay.get(day) ?? 0 }));
       return {
         days: series,
+        bars: days > 31 ? byWeek(series) : series,
         // Le total de GoatCounter (le même que sur son site), sans les événements
         total: Number.isInteger(totals.total)
           ? totals.total - (totals.total_events ?? 0)
           : series.reduce((sum, d) => sum + d.count, 0),
         today: series.at(-1).count,
         pages: (hits.hits ?? []).filter((h) => !h.event).map((h) => ({ path: h.path, count: h.count ?? 0 })),
+        refs: (refs.stats ?? []).map((r) => ({ name: r.name ?? '', count: r.count ?? 0 })),
       };
     },
   };
@@ -84,6 +89,18 @@ export function lastDays(today, count) {
 
 function isoDay(date) {
   return date.toISOString().slice(0, 10);
+}
+
+// Jours → semaines, en partant d'aujourd'hui : chaque semaine finit le jour de
+// la semaine d'aujourd'hui (la plus ancienne peut être incomplète).
+// { day: premier jour, end: dernier jour, count: total }
+export function byWeek(series) {
+  const weeks = [];
+  for (let end = series.length; end > 0; end -= 7) {
+    const chunk = series.slice(Math.max(0, end - 7), end);
+    weeks.unshift({ day: chunk[0].day, end: chunk.at(-1).day, count: chunk.reduce((sum, d) => sum + d.count, 0) });
+  }
+  return weeks;
 }
 
 // Graduation « ronde » au-dessus du maximum : 1, 2, 5, 10, 20, 50…

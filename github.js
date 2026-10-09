@@ -13,7 +13,7 @@
 //     workflow, attend sa réponse dans le même brouillon, puis le supprime.
 // =============================================================================
 
-import { BRANCHE, DEPOT, WORKFLOW, fichier } from './config.js?v=8';
+import { BRANCHE, DEPOT, WORKFLOW, fichier, fichierActualites } from './config.js?v=10';
 
 const API = `https://api.github.com/repos/${DEPOT}`;
 const TAG_PREFIX = 'reformulation-';
@@ -60,24 +60,45 @@ export function createClient(token, { fetch = globalThis.fetch.bind(globalThis),
     for (const run of runs) await request('DELETE', `/actions/runs/${run.id}`);
   }
 
+  // Fichier du dépôt → { source, version }
+  async function readText(path) {
+    const data = await request('GET', `/contents/${path}?ref=${encodeURIComponent(BRANCHE)}`);
+    return { source: fromBase64(data.content), version: data.sha };
+  }
+
+  // Nouveau contenu → { version, commit }. GitHub refuse (409) si le fichier
+  // n'est plus à la version `version` : rien n'est écrasé.
+  async function writeText(path, source, version, message) {
+    const data = await request('PUT', `/contents/${path}`, {
+      message,
+      content: toBase64(source),
+      sha: version,
+      branch: BRANCHE,
+    });
+    return { version: data.content.sha, commit: data.commit.html_url };
+  }
+
   return {
-    // Fichier des synthèses d'un sujet → { source, version }
-    async readFile(sujet) {
-      const data = await request('GET', `/contents/${fichier(sujet)}?ref=${encodeURIComponent(BRANCHE)}`);
-      return { source: fromBase64(data.content), version: data.sha };
+    // Synthèses d'un sujet (Markdown)
+    readFile: (sujet) => readText(fichier(sujet)),
+    writeFile: (sujet, source, version, message) => writeText(fichier(sujet), source, version, message),
+
+    // Actualités d'un sujet → { data: { miseAJour, actualites, ecartees }, version }.
+    // Pas encore de fichier (sujet jamais collecté) : aucune actualité.
+    async readNews(sujet) {
+      try {
+        const { source, version } = await readText(fichierActualites(sujet));
+        return { data: JSON.parse(source), version };
+      } catch (error) {
+        if (error.status === 404) return { data: { miseAJour: null, actualites: [] }, version: null };
+        throw error;
+      }
     },
 
-    // Nouveau contenu → { version, commit }. GitHub refuse (409) si le fichier
-    // n'est plus à la version `version` : rien n'est écrasé.
-    async writeFile(sujet, source, version, message) {
-      const data = await request('PUT', `/contents/${fichier(sujet)}`, {
-        message,
-        content: toBase64(source),
-        sha: version,
-        branch: BRANCHE,
-      });
-      return { version: data.content.sha, commit: data.commit.html_url };
-    },
+    // Même mise en forme que scripts/veille.mjs : le fichier ne change que là
+    // où il a été modifié
+    writeNews: (sujet, data, version, message) =>
+      writeText(fichierActualites(sujet), `${JSON.stringify(data, null, 2)}\n`, version, message),
 
     // Passage → passage reformulé par l'IA, avec des consignes adaptées au
     // sujet de veille. `onWait(secondes)` est appelé à chaque lecture de la

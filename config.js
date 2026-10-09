@@ -14,8 +14,9 @@ export const SUJETS = [
   { id: 'facturation-electronique', nom: 'Facturation électronique' },
 ];
 
-// Fichier des synthèses d'un sujet
+// Fichiers d'un sujet : mes synthèses, et les actualités collectées chaque lundi
 export const fichier = (sujet) => `content/veille/${sujet}/syntheses.md`;
+export const fichierActualites = (sujet) => `content/veille/${sujet}/actualites.json`;
 
 // Onglet du sujet sur le site, pour le lien « Voir sur le site »
 export const pageDuSujet = (sujet) => `https://remim.me/#/veille/${sujet}`;

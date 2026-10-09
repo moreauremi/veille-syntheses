@@ -1,6 +1,7 @@
 // =============================================================================
-// Boîte « Visites du site » : chiffres clés, graphique des 30 derniers jours,
-// tableau des chiffres et pages les plus vues (données : stats.js)
+// Boîte « Visites du site » : période (7, 30 ou 90 jours), chiffres clés,
+// graphique, tableau des chiffres, pages les plus vues et provenance des
+// visiteurs (données : stats.js)
 // -----------------------------------------------------------------------------
 // Le graphique est un SVG construit élément par élément : les textes (dates,
 // adresses des pages) passent par textContent, jamais par du HTML. Chaque jour
@@ -8,12 +9,13 @@
 // chiffres restent lisibles sans survol, dans le tableau « Voir les chiffres ».
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=8';
-import { chartGeometry, createStatsClient } from './stats.js?v=8';
+import { GOATCOUNTER } from './config.js?v=10';
+import { chartGeometry, createStatsClient } from './stats.js?v=10';
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORAGE = 'syntheses-goatcounter';
-const DAYS = 30;
+const PERIOD_STORAGE = 'syntheses-visites-periode';
+const PERIODS = [7, 30, 90]; // 90 jours : une colonne par semaine
 const PLOT_HEIGHT = 120; // hauteur des colonnes ; la bande des dates s'ajoute en dessous
 const TOP = 16; // marge au-dessus des colonnes, pour l'étiquette du jour le plus fort
 const AXIS_HEIGHT = 22;
@@ -26,6 +28,24 @@ const number = new Intl.NumberFormat('fr-FR');
 const asDate = (day) => new Date(`${day}T00:00:00Z`);
 
 let data = null; // dernières statistiques chargées, pour redessiner à la bonne largeur
+let period = storedPeriod();
+
+function storedPeriod() {
+  try {
+    const value = Number(localStorage.getItem(PERIOD_STORAGE));
+    return PERIODS.includes(value) ? value : 30;
+  } catch {
+    return 30;
+  }
+}
+
+const weekly = () => period > 31;
+
+// Libellé d'une colonne : un jour, ou une semaine (« du 3 au 9 oct. »)
+function barLabel(bar) {
+  if (!bar.end) return dayLabel.format(asDate(bar.day));
+  return `du ${shortLabel.format(asDate(bar.day))} au ${shortLabel.format(asDate(bar.end))}`;
+}
 
 function storedKey() {
   try {
@@ -74,6 +94,26 @@ $('visits-form').addEventListener('submit', (event) => {
 
 $('visits-refresh').addEventListener('click', () => loadVisits());
 
+// Choix de la période : boutons à bascule, un seul enfoncé
+function renderPeriods() {
+  for (const button of $('visits-periods').querySelectorAll('button')) {
+    button.setAttribute('aria-pressed', String(Number(button.dataset.period) === period));
+  }
+}
+
+$('visits-periods').addEventListener('click', (event) => {
+  const value = Number(event.target.closest('button')?.dataset.period);
+  if (!PERIODS.includes(value) || value === period) return;
+  period = value;
+  try {
+    localStorage.setItem(PERIOD_STORAGE, String(value));
+  } catch {
+    // stockage indisponible : le choix vaut jusqu'au rechargement
+  }
+  renderPeriods();
+  loadVisits();
+});
+
 $('visits-forget').addEventListener('click', () => {
   forgetVisitsKey();
   showKeyForm();
@@ -86,7 +126,8 @@ async function loadVisits(key = storedKey()) {
   // Pendant le chargement, l'ancien graphique reste affiché, atténué
   $('visits-content').classList.add('loading');
   try {
-    data = await createStatsClient(key).load(DAYS);
+    renderPeriods();
+    data = await createStatsClient(key).load(period);
     render();
     $('visits-updated').textContent = `Mis à jour à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`;
   } catch (error) {
@@ -103,11 +144,16 @@ async function loadVisits(key = storedKey()) {
 }
 
 function render() {
+  $('visits-total-label').textContent = `Visiteurs, ${period} derniers jours`;
+  $('visits-pages-title').textContent = `Pages les plus vues (${period} jours)`;
+  $('visits-refs-title').textContent = `Provenance (${period} jours)`;
+  $('visits-table-head').textContent = weekly() ? 'Semaine' : 'Jour';
   $('visits-total').textContent = number.format(data.total);
   $('visits-today').textContent = number.format(data.today);
   renderChart();
   renderTable();
   renderPages();
+  renderRefs();
 }
 
 // --- Graphique ---------------------------------------------------------------------
@@ -127,10 +173,10 @@ function columnPath({ x, y, width, height }) {
 function renderChart() {
   const chart = $('visits-chart');
   const width = Math.max(200, Math.floor(chart.clientWidth));
-  const { max, bars } = chartGeometry(data.days, { width, height: PLOT_HEIGHT, left: LEFT });
+  const { max, bars } = chartGeometry(data.bars, { width, height: PLOT_HEIGHT, left: LEFT });
   const total = TOP + PLOT_HEIGHT + AXIS_HEIGHT;
   const root = svg('svg', { width, height: total, viewBox: `0 0 ${width} ${total}`, role: 'group' });
-  root.setAttribute('aria-label', `Visiteurs par jour, ${DAYS} derniers jours`);
+  root.setAttribute('aria-label', `Visiteurs par ${weekly() ? 'semaine' : 'jour'}, ${period} derniers jours`);
   // Zone du graphique, sous une marge qui laisse la place à l'étiquette du
   // jour le plus fort, même quand sa colonne atteint la graduation du haut
   const plot = svg('g', { transform: `translate(0,${TOP})` });
@@ -145,12 +191,12 @@ function renderChart() {
     plot.append(label);
   }
 
-  // Dates : premier jour, milieu, aujourd'hui
+  // Dates : début, milieu, aujourd'hui (ou cette semaine)
   for (const [index, anchor] of [[0, 'start'], [Math.floor(bars.length / 2), 'middle'], [bars.length - 1, 'end']]) {
     const bar = bars[index];
     const x = anchor === 'start' ? bar.slot.x : anchor === 'end' ? bar.slot.x + bar.slot.width : bar.x + bar.width / 2;
     const label = svg('text', { x, y: PLOT_HEIGHT + 16, 'text-anchor': anchor, class: 'tick' });
-    label.textContent = index === bars.length - 1 ? "aujourd'hui" : shortLabel.format(asDate(bar.day));
+    label.textContent = index === bars.length - 1 ? (weekly() ? 'cette semaine' : "aujourd'hui") : shortLabel.format(asDate(bar.day));
     plot.append(label);
   }
 
@@ -158,7 +204,7 @@ function renderChart() {
   const peak = bars.reduce((best, bar) => (bar.count > best.count ? bar : best), bars[0]);
   for (const bar of bars) {
     const group = svg('g', { class: 'day', tabindex: 0, role: 'img' });
-    group.setAttribute('aria-label', `${dayLabel.format(asDate(bar.day))} : ${bar.count} visiteur${bar.count > 1 ? 's' : ''}`);
+    group.setAttribute('aria-label', `${barLabel(bar)} : ${bar.count} visiteur${bar.count > 1 ? 's' : ''}`);
     group.append(svg('rect', { x: bar.slot.x, y: 0, width: bar.slot.width, height: PLOT_HEIGHT, class: 'hit' }));
     if (bar.count > 0) group.append(svg('path', { d: columnPath(bar), class: 'column' }));
     for (const type of ['pointerenter', 'focus']) group.addEventListener(type, () => showTooltip(bar));
@@ -181,7 +227,7 @@ function showTooltip(bar) {
   const value = document.createElement('strong');
   value.textContent = `${number.format(bar.count)} visiteur${bar.count > 1 ? 's' : ''}`;
   const day = document.createElement('span');
-  day.textContent = dayLabel.format(asDate(bar.day));
+  day.textContent = barLabel(bar);
   tooltip.replaceChildren(value, day);
   tooltip.hidden = false;
   // Au-dessus de la colonne, sans sortir du graphique
@@ -199,10 +245,10 @@ function hideTooltip() {
 
 function renderTable() {
   $('visits-table-body').replaceChildren(
-    ...[...data.days].reverse().map((d) => {
+    ...[...data.bars].reverse().map((d) => {
       const row = document.createElement('tr');
       const day = document.createElement('td');
-      day.textContent = dayLabel.format(asDate(d.day));
+      day.textContent = barLabel(d);
       const count = document.createElement('td');
       count.textContent = number.format(d.count);
       row.append(day, count);
@@ -227,6 +273,25 @@ function renderPages() {
     }),
   );
   $('visits-link').href = GOATCOUNTER;
+}
+
+// Provenance : moteur de recherche, réseau social, site… ; nom vide = arrivée
+// directe (adresse tapée, favori, lien dans un e-mail ou un document)
+function renderRefs() {
+  $('visits-refs-empty').hidden = data.refs.length > 0;
+  $('visits-refs').replaceChildren(
+    ...data.refs.map((ref) => {
+      const item = document.createElement('li');
+      const name = document.createElement('span');
+      name.className = 'page-path';
+      name.textContent = ref.name || 'Accès direct';
+      const count = document.createElement('span');
+      count.className = 'page-count';
+      count.textContent = number.format(ref.count);
+      item.append(name, count);
+      return item;
+    }),
+  );
 }
 
 // Largeur de la boîte changée (fenêtre, téléphone tourné) : graphique redessiné

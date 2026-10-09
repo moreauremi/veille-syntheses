@@ -9,7 +9,7 @@
 // page garde le jeton GitHub : rien de ce qu'on y tape ne doit s'y exécuter.
 // =============================================================================
 
-import { Marked } from './vendor/marked.esm.js?v=8';
+import { Marked } from './vendor/marked.esm.js?v=10';
 
 const marked = new Marked({
   gfm: true,

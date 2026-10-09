@@ -68,3 +68,41 @@ function hideIgnored(text) {
   const blank = (part) => part.replace(/[^\n]/g, ' ');
   return text.replace(/<!--[\s\S]*?-->/g, blank).replace(/^```[\s\S]*?^```/gm, blank);
 }
+
+// --- Sources : les actualités dont parle la synthèse --------------------------------
+//
+// Cocher une actualité dans le tableau de bord ajoute son lien dans un bloc
+// « Sources », toujours en fin de synthèse :
+//
+//   **Sources**
+//
+//   - [Titre de l'article](https://…) (Source, 6 octobre 2026)
+//
+// Le bloc est réécrit à chaque case cochée ou décochée ; ce qui le précède
+// n'est jamais touché.
+
+const SOURCES_BLOCK = /(?:^|\n+)\*\*Sources\*\*[ \t]*(?:\n(?:[ \t]*|- .*))*$/;
+
+// Texte + actualités citées (dans l'ordre voulu) → texte avec le bloc à jour
+export function setSources(texte, items, formatDate) {
+  const base = texte.replace(SOURCES_BLOCK, '').trimEnd();
+  if (items.length === 0) return base;
+  const lines = items.map((a) => `- [${a.titre.replace(/[[\]\\]/g, '\\$&')}](${/[\s()<>]/.test(a.url) ? `<${a.url}>` : a.url}) (${a.source}, ${formatDate(a.date)})`);
+  return `${base ? `${base}\n\n` : ''}**Sources**\n\n${lines.join('\n')}`;
+}
+
+// Adresses des liens présents dans le texte (pour cocher les actualités déjà citées)
+export function citedUrls(texte) {
+  // [texte](adresse) ou [texte](<adresse avec parenthèses>)
+  return new Set([...texte.matchAll(/\]\((?:<([^>]+)>|([^)\s]+))\)/g)].map((match) => match[1] ?? match[2]));
+}
+
+// Date de la synthèse la plus récente (AAAA-MM-JJ), lue dans les titres
+// « JJ/MM/AAAA - … » ; null si aucune n'est datée
+export function lastSynthesisDate(syntheses) {
+  const dates = syntheses
+    .map((s) => /(\d{2})\/(\d{2})\/(\d{4})/.exec(s.titre))
+    .filter(Boolean)
+    .map(([, d, m, y]) => `${y}-${m}-${d}`);
+  return dates.sort().at(-1) ?? null;
+}

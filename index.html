@@ -10,8 +10,8 @@
     <title>Synthèses de veille · RémiOS</title>
     <link rel="icon" href="data:,">
     <link rel="preload" href="fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=8">
-    <script type="module" src="app.js?v=8"></script>
+    <link rel="stylesheet" href="style.css?v=10">
+    <script type="module" src="app.js?v=10"></script>
   </head>
   <body>
     <header class="tui-bar">
@@ -96,8 +96,13 @@
             </form>
 
             <div id="visits-content" hidden>
+              <div class="periods" id="visits-periods" role="group" aria-label="Période">
+                <button type="button" class="tui-btn tui-btn--small" data-period="7" aria-pressed="false">7 jours</button>
+                <button type="button" class="tui-btn tui-btn--small" data-period="30" aria-pressed="false">30 jours</button>
+                <button type="button" class="tui-btn tui-btn--small" data-period="90" aria-pressed="false">90 jours</button>
+              </div>
               <div class="figures">
-                <p class="figure"><span class="figure-label">Visiteurs, 30 derniers jours</span><span class="figure-value hero" id="visits-total">–</span></p>
+                <p class="figure"><span class="figure-label" id="visits-total-label">Visiteurs, 30 derniers jours</span><span class="figure-value hero" id="visits-total">–</span></p>
                 <p class="figure"><span class="figure-label">Aujourd'hui</span><span class="figure-value" id="visits-today">–</span></p>
               </div>
               <div class="chart" id="visits-chart">
@@ -106,13 +111,16 @@
               <details class="help">
                 <summary>Voir les chiffres</summary>
                 <table class="visits-table">
-                  <thead><tr><th scope="col">Jour</th><th scope="col">Visiteurs</th></tr></thead>
+                  <thead><tr><th scope="col" id="visits-table-head">Jour</th><th scope="col">Visiteurs</th></tr></thead>
                   <tbody id="visits-table-body"></tbody>
                 </table>
               </details>
-              <h3 class="panel-title pages-title">Pages les plus vues (30 jours)</h3>
+              <h3 class="panel-title pages-title" id="visits-pages-title">Pages les plus vues (30 jours)</h3>
               <p class="hint" id="visits-pages-empty" hidden>Aucune visite pour l'instant.</p>
               <ol class="pages" id="visits-pages"></ol>
+              <h3 class="panel-title pages-title" id="visits-refs-title">Provenance (30 jours)</h3>
+              <p class="hint" id="visits-refs-empty" hidden>Aucune visite pour l'instant.</p>
+              <ol class="pages" id="visits-refs"></ol>
               <p class="hint"><span id="visits-updated"></span> <a id="visits-link" href="https://remim.goatcounter.com" target="_blank" rel="noopener noreferrer">Tout voir sur GoatCounter ↗</a></p>
             </div>
           </div>
@@ -141,6 +149,18 @@
               Markdown : <code>**gras**</code>, listes <code>- élément</code>, liens <code>[texte](https://…)</code>, sous-titres <code>###</code>.
               Sélectionnez un passage pour ne reformuler que lui.
             </p>
+
+            <!-- Actualités du sujet : cocher celles dont parle la synthèse -->
+            <section class="panel news" aria-labelledby="news-title">
+              <h3 class="panel-title" id="news-title">Actualités du sujet</h3>
+              <p class="hint">Cochez celles dont parle la synthèse : leurs liens s'ajoutent en fin de texte, sous « Sources ». « Hors sujet » retire une actualité du site, et la collecte ne la reproposera plus.</p>
+              <p class="hint" id="news-status" role="status"></p>
+              <p class="hint" id="news-empty" hidden>Aucune actualité pour l'instant : la prochaine collecte du lundi remplira cette liste.</p>
+              <ul class="news-list" id="news-list"></ul>
+              <div class="tui-actions">
+                <button type="button" class="tui-btn tui-btn--small" id="news-more" hidden>Voir les plus anciennes</button>
+              </div>
+            </section>
 
             <section class="panel suggestion" id="suggestion" hidden aria-labelledby="suggestion-title">
               <h3 class="panel-title" id="suggestion-title">Proposition de l'IA</h3>

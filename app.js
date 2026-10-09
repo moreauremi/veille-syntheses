@@ -5,11 +5,11 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SUJETS, pageDuSujet } from './config.js?v=8';
-import { createClient } from './github.js?v=8';
-import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=8';
-import { renderPreview } from './apercu.js?v=8';
-import { forgetVisitsKey, showVisits } from './visites.js?v=8';
+import { SUJETS, pageDuSujet } from './config.js?v=10';
+import { createClient } from './github.js?v=10';
+import { checkSynthese, citedUrls, lastSynthesisDate, parseSyntheses, serializeSyntheses, setSources } from './syntheses.js?v=10';
+import { renderPreview } from './apercu.js?v=10';
+import { forgetVisitsKey, showVisits } from './visites.js?v=10';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';
@@ -26,7 +26,14 @@ const state = {
   saved: { titre: '', texte: '' }, // contenu au dernier chargement ou enregistrement
   busy: false,
   suggestion: null, // proposition de l'IA en attente : { start, end, texte }
+  news: { data: null, version: null, items: [] }, // actualités du sujet (actualites.json)
+  newsShown: 8, // nombre d'actualités affichées (« Voir les plus anciennes » en ajoute)
+  lastDates: {}, // date de la dernière synthèse de chaque sujet (AAAA-MM-JJ ou null)
 };
+
+const MAX_DAYS = 21; // au-delà, un sujet est signalé en retard (comme le rappel du lundi)
+const longDate = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const formatDay = (day) => longDate.format(new Date(`${day}T00:00:00Z`));
 
 // --- Jeton : localStorage (rester connecté) ou sessionStorage (cet onglet) -------
 
@@ -89,6 +96,8 @@ async function connect(token) {
   renderSujets();
   applyFile(data);
   if (!state.editing && !$('texte').value) startNew();
+  loadNews();
+  refreshRegularity();
   showVisits();
 }
 
@@ -110,12 +119,50 @@ function renderSujets() {
       key.className = 'item-key';
       key.setAttribute('aria-hidden', 'true');
       key.textContent = String(index + 1);
-      tab.append(key, sujet.nom);
+      const name = document.createElement('span');
+      name.append(key, sujet.nom);
+      const age = document.createElement('span');
+      age.className = 'sujet-age';
+      tab.append(name, age);
       tab.addEventListener('click', () => openSujet(sujet.id));
       return tab;
     }),
   );
   $('site-link').href = pageDuSujet(state.sujet);
+  renderAges();
+}
+
+// --- Régularité : date de la dernière synthèse de chaque sujet -------------------------
+
+// Sous le nom de chaque sujet : « il y a 12 j », en rouge au-delà de 21 jours
+// ou sans aucune synthèse (le rappel du lundi ouvre alors une issue GitHub)
+function renderAges() {
+  for (const tab of $('sujets').querySelectorAll('.sujet')) {
+    const date = state.lastDates[tab.dataset.sujet];
+    const age = tab.querySelector('.sujet-age');
+    if (date === undefined) {
+      age.textContent = '';
+      continue;
+    }
+    const days = date ? Math.floor((Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse(date)) / 86_400_000) : null;
+    age.textContent = days === null ? 'aucune synthèse' : days <= 0 ? "synthèse aujourd'hui" : days === 1 ? 'synthèse hier' : `synthèse il y a ${days} j`;
+    tab.classList.toggle('late', days === null || days > MAX_DAYS);
+  }
+}
+
+// Lit les synthèses de tous les sujets (en arrière-plan, sans bloquer la page)
+async function refreshRegularity() {
+  const client = state.client;
+  await Promise.all(
+    SUJETS.map(async ({ id }) => {
+      try {
+        state.lastDates[id] = lastSynthesisDate(parseSyntheses((await client.readFile(id)).source).syntheses);
+      } catch {
+        // sujet illisible : pas d'indication, sans gêner le reste
+      }
+    }),
+  );
+  renderAges();
 }
 
 // Au clavier : ← et → passent d'un sujet à l'autre
@@ -143,10 +190,12 @@ async function openSujet(id, { focus = false } = {}) {
   await run('Chargement des synthèses…', async () => {
     const data = await state.client.readFile(id);
     state.editing = null;
+    state.news = { data: null, version: null, items: [] };
     applyFile(data);
     startNew();
     loaded = true;
   });
+  if (loaded) loadNews();
   // Échec du chargement : retour au sujet précédent, dont la liste est encore affichée
   if (!loaded && state.client) {
     state.sujet = previous;
@@ -185,6 +234,8 @@ function applyFile({ source, version }) {
 function applyData({ version, syntheses }) {
   state.version = version;
   state.syntheses = syntheses;
+  state.lastDates[state.sujet] = lastSynthesisDate(syntheses);
+  renderAges();
   // La synthèse en cours de modification a pu changer de place (ajout ou
   // suppression ailleurs) : on la retrouve par son titre.
   if (state.editing) {
@@ -268,6 +319,7 @@ function fillEditor(titre, texte) {
   state.saved = { titre, texte };
   setStatus('');
   refreshPreview();
+  syncNewsChecks();
 }
 
 function startNew() {
@@ -502,12 +554,133 @@ $('preview-toggle').addEventListener('click', () => {
 for (const field of ['titre', 'texte']) {
   $(field).addEventListener('input', () => {
     clearTimeout(previewTimer);
-    previewTimer = setTimeout(refreshPreview, 200);
+    previewTimer = setTimeout(() => {
+      refreshPreview();
+      syncNewsChecks();
+    }, 200);
   });
 }
 
 function refreshPreview() {
   if (!$('preview').hidden) $('preview-content').innerHTML = renderPreview($('titre').value, $('texte').value);
+}
+
+// --- Actualités du sujet : sources de la synthèse, et « Hors sujet » ----------------------
+
+async function loadNews() {
+  const sujet = state.sujet;
+  $('news-status').textContent = 'Chargement des actualités…';
+  try {
+    const { data, version } = await state.client.readNews(sujet);
+    if (sujet !== state.sujet) return; // sujet changé entre-temps
+    setNews(data, version);
+    $('news-status').textContent = '';
+  } catch (error) {
+    $('news-status').textContent = `Actualités indisponibles : ${error.message}`;
+  }
+}
+
+function setNews(data, version) {
+  // Les plus récentes d'abord, comme sur le site
+  const items = [...data.actualites].sort((a, b) => b.date.localeCompare(a.date) || a.titre.localeCompare(b.titre, 'fr'));
+  state.news = { data, version, items };
+  renderNews();
+}
+
+function renderNews() {
+  const { items } = state.news;
+  const cited = citedUrls($('texte').value);
+  $('news-empty').hidden = items.length > 0;
+  $('news-list').replaceChildren(
+    ...items.slice(0, state.newsShown).map((item) => {
+      const li = document.createElement('li');
+      li.className = 'news-item';
+
+      const label = document.createElement('label');
+      label.className = 'news-check';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.dataset.url = item.url;
+      box.checked = cited.has(item.url);
+      box.addEventListener('change', () => toggleSource(item, box));
+      const title = document.createElement('span');
+      title.className = 'news-title';
+      title.textContent = item.titre;
+      label.append(box, title);
+
+      const meta = document.createElement('p');
+      meta.className = 'news-meta';
+      const link = document.createElement('a');
+      link.href = item.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = 'lire ↗';
+      meta.append(`${formatDay(item.date)} · ${item.source} · `, link);
+
+      li.append(label, meta, button('Hors sujet', () => discardNews(item), `Retirer « ${item.titre} » de la veille`, 'tui-btn tui-btn--small danger'));
+      return li;
+    }),
+  );
+  const rest = items.length - state.newsShown;
+  $('news-more').hidden = rest <= 0;
+  $('news-more').textContent = `Voir les ${rest} plus ancienne${rest > 1 ? 's' : ''}`;
+}
+
+$('news-more').addEventListener('click', () => {
+  state.newsShown = state.news.items.length;
+  renderNews();
+});
+
+// Cases cochées = actualités dont le lien est déjà dans le texte
+function syncNewsChecks() {
+  const cited = citedUrls($('texte').value);
+  for (const box of $('news-list').querySelectorAll('input[type="checkbox"]')) box.checked = cited.has(box.dataset.url);
+}
+
+// Case cochée ou décochée : le bloc « Sources » en fin de texte est réécrit
+function toggleSource(item, box) {
+  const area = $('texte');
+  if (state.busy || area.readOnly) {
+    box.checked = !box.checked; // pas pendant une publication ou une reformulation
+    return;
+  }
+  const cited = citedUrls(area.value);
+  if (box.checked) cited.add(item.url);
+  else cited.delete(item.url);
+  area.value = setSources(area.value, state.news.items.filter((a) => cited.has(a.url)), formatDay);
+  refreshPreview();
+}
+
+// « Hors sujet » : l'actualité est retirée du fichier du sujet (un commit, le
+// site se republie) et son adresse est notée dans « ecartees » : la collecte
+// du lundi ne la reproposera pas.
+async function discardNews(item) {
+  if (state.busy) return;
+  const nom = SUJETS.find((s) => s.id === state.sujet).nom;
+  if (!confirm(`Retirer « ${item.titre} » de la veille ${nom} ? Elle disparaîtra du site et ne sera plus proposée.`)) return;
+  await run("Retrait de l'actualité…", async () => {
+    const { data, version } = await state.client.readNews(state.sujet);
+    const actualites = data.actualites.filter((a) => a.url !== item.url);
+    const next = { ...data, actualites, ecartees: [...new Set([...(data.ecartees ?? []), item.url])] };
+    let saved;
+    try {
+      saved = await state.client.writeNews(state.sujet, next, version, `veille(${state.sujet}): actualité « ${item.titre} » retirée (hors sujet)`);
+    } catch (error) {
+      if (error.status !== 409) throw error;
+      await loadNews();
+      throw new Error("Le fichier des actualités a changé entre-temps (collecte du lundi ?) : la liste vient d'être rechargée, recommencez.");
+    }
+    setNews(next, saved.version);
+    // Si elle était citée, son lien quitte aussi le bloc « Sources »
+    const area = $('texte');
+    if (citedUrls(area.value).has(item.url)) {
+      const cited = citedUrls(area.value);
+      cited.delete(item.url);
+      area.value = setSources(area.value, state.news.items.filter((a) => cited.has(a.url)), formatDay);
+      refreshPreview();
+    }
+    setStatus('Actualité retirée. Le site sera à jour dans 2 à 3 minutes.', 'ok', null, saved.commit);
+  });
 }
 
 // --- Démarrage ------------------------------------------------------------------------

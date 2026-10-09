@@ -2,7 +2,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chartGeometry, createStatsClient, lastDays, niceMax } from '../stats.js?v=6';
+import { byWeek, chartGeometry, createStatsClient, lastDays, niceMax } from '../stats.js';
 
 const TODAY = new Date('2026-10-09T15:30:00Z');
 
@@ -16,6 +16,7 @@ function fakeGoatCounter({ status = 200 } = {}) {
     if (u.pathname === '/api/v0/stats/total') {
       return json({ total: 11, total_events: 2, stats: [{ day: '2026-10-07', daily: 4 }, { day: '2026-10-09', daily: 5 }, { day: '2026-10-10', daily: 0 }] });
     }
+    if (u.pathname === '/api/v0/stats/toprefs') return json({ stats: [{ name: 'linkedin.com', count: 3 }, { name: '', count: 2 }] });
     return json({ hits: [{ path: '/veille', count: 6 }, { path: 'clic', count: 2, event: true }, { path: '/', count: 3 }] });
   };
   return { fetch, calls };
@@ -46,7 +47,7 @@ test('graphique : colonnes de 24 px au plus, 2 px d’écart, hauteur proportion
 test('chargement : bonne période, clé envoyée, jours sans visite à 0, pages sans les événements', async () => {
   const gc = fakeGoatCounter();
   const stats = await createStatsClient('cle', { fetch: gc.fetch, today: TODAY }).load(30);
-  assert.deepEqual(gc.calls.map((c) => c.path).sort(), ['/api/v0/stats/hits', '/api/v0/stats/total']);
+  assert.deepEqual(gc.calls.map((c) => c.path).sort(), ['/api/v0/stats/hits', '/api/v0/stats/toprefs', '/api/v0/stats/total']);
   assert.ok(gc.calls.every((c) => c.auth === 'Bearer cle'));
   assert.deepEqual([gc.calls[0].params.start, gc.calls[0].params.end], ['2026-09-10T00:00:00Z', '2026-10-10T00:00:00Z']);
   assert.equal(stats.days.length, 30);
@@ -54,6 +55,8 @@ test('chargement : bonne période, clé envoyée, jours sans visite à 0, pages 
   assert.equal(stats.total, 9);
   assert.equal(stats.today, 5);
   assert.deepEqual(stats.pages, [{ path: '/veille', count: 6 }, { path: '/', count: 3 }]);
+  assert.deepEqual(stats.refs, [{ name: 'linkedin.com', count: 3 }, { name: '', count: 2 }]);
+  assert.equal(stats.bars, stats.days, '30 jours : une colonne par jour');
 });
 
 test('clé refusée ou sans permission : message qui dit quoi faire', async () => {
@@ -61,4 +64,13 @@ test('clé refusée ou sans permission : message qui dit quoi faire', async () =
     const gc = fakeGoatCounter({ status });
     await assert.rejects(createStatsClient('cle', { fetch: gc.fetch, today: TODAY }).load(), (error) => error.status === status && pattern.test(error.message));
   }
+});
+
+test('90 jours : une colonne par semaine, la dernière finissant aujourd’hui', () => {
+  const series = lastDays(TODAY, 90).map((day) => ({ day, count: 1 }));
+  const weeks = byWeek(series);
+  assert.equal(weeks.length, 13);
+  assert.deepEqual(weeks.at(-1), { day: '2026-10-03', end: '2026-10-09', count: 7 });
+  assert.equal(weeks[0].count, 6, 'la plus ancienne est incomplète');
+  assert.equal(weeks.reduce((sum, w) => sum + w.count, 0), 90);
 });

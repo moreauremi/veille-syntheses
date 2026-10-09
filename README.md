@@ -2,13 +2,14 @@
 
 Page privée pour écrire l'onglet « Mes synthèses » de chacun des trois sujets de veille de mon portfolio [remim.me](https://remim.me/#/veille) (cybersécurité, virtualisation, facturation électronique), sans ouvrir l'éditeur de code : **https://veille.remim.me**
 
-- **Choix du sujet** en haut de la page (← et → au clavier) ; le dernier sujet ouvert est retenu.
+- **Choix du sujet** en haut de la page (← et → au clavier) ; le dernier sujet ouvert est retenu. Sous chaque sujet, l'ancienneté de la dernière synthèse (« synthèse il y a 12 j »), signalée en rouge au-delà de 21 jours ou s'il n'y en a aucune : c'est aussi le seuil du rappel envoyé chaque lundi (issue GitHub, voir le README du site).
+- **Actualités du sujet** sous le texte : cocher celles dont parle la synthèse ajoute leurs liens en fin de texte, dans un bloc « Sources » (réécrit à chaque case cochée ou décochée ; le reste du texte n'est jamais touché). **Hors sujet** retire une actualité du site (un commit) et note son adresse dans `ecartees` : la collecte du lundi ne la reproposera plus.
 
 - **Liste, ajout, modification, suppression** des synthèses. Une nouvelle synthèse se place en haut (la plus récente d'abord), avec un titre qui commence par la date du jour (`09/10/2026 - …`).
 - **Reformuler avec l'IA** : sélectionner un passage (sans sélection : tout le texte). L'IA propose une version plus claire, à accepter (**Remplacer**) ou non (**Garder mon texte**) ; Cmd+Z / Ctrl+Z annule un remplacement. Consignes données à l'IA : garder le sens, les faits, les chiffres, les noms et les liens, ne rien ajouter.
 - **Aperçu** avec le même rendu Markdown que le site.
 - **Publier** (ou Cmd+S / Ctrl+S) : un commit sur le dépôt du site, qui se republie tout seul en 2 à 3 minutes.
-- **Visites du site** : visiteurs des 30 derniers jours et d'aujourd'hui, graphique par jour (valeur et date au survol ou au clavier, tableau « Voir les chiffres »), pages les plus vues. Les chiffres viennent de GoatCounter, lus avec une clé d'API en lecture seule collée une fois dans la page.
+- **Visites du site** : période de 7, 30 ou 90 jours (une colonne par jour, par semaine sur 90 jours), visiteurs de la période et d'aujourd'hui, graphique (valeur et date au survol ou au clavier, tableau « Voir les chiffres »), pages les plus vues, provenance des visiteurs (moteurs de recherche, LinkedIn, accès direct…). Les chiffres viennent de GoatCounter, lus avec une clé d'API en lecture seule collée une fois dans la page.
 
 ## Principe
 
@@ -18,6 +19,7 @@ Une page 100 % statique, publiée par GitHub Pages : pas de serveur, rien à hé
 Navigateur ──► api.github.com ──► dépôt moreauremi.github.io
 (veille.remim.me)                   │
                                     ├─ content/veille/<sujet>/syntheses.md   lu, puis réécrit : un commit par enregistrement
+                                    ├─ content/veille/<sujet>/actualites.json lu (sources), réécrit pour « Hors sujet »
                                     │                               ──► deploy.yml republie remim.me
                                     │
                                     └─ « Reformuler avec l'IA » :
