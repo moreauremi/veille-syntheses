@@ -5,11 +5,12 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SUJETS, pageDuSujet } from './config.js?v=10';
-import { createClient } from './github.js?v=10';
-import { checkSynthese, citedUrls, lastSynthesisDate, parseSyntheses, serializeSyntheses, setSources } from './syntheses.js?v=10';
-import { renderPreview } from './apercu.js?v=10';
-import { forgetVisitsKey, showVisits } from './visites.js?v=10';
+import { SUJETS, pageDuSujet } from './config.js?v=12';
+import { createClient } from './github.js?v=12';
+import { checkSynthese, citedUrls, lastSynthesisDate, parseSyntheses, serializeSyntheses, setSources } from './syntheses.js?v=12';
+import { renderPreview } from './apercu.js?v=12';
+import { forgetVisitsKey, showVisits } from './visites.js?v=12';
+import { byDate, discard, restore, usage } from './actualites.js?v=12';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';
@@ -27,7 +28,9 @@ const state = {
   busy: false,
   suggestion: null, // proposition de l'IA en attente : { start, end, texte }
   news: { data: null, version: null, items: [] }, // actualités du sujet (actualites.json)
-  newsShown: 8, // nombre d'actualités affichées (« Voir les plus anciennes » en ajoute)
+  newsShown: 8, // nombre d'actualités affichées (« Voir les plus anciennes » montre tout)
+  newsTab: 'actuelles', // onglet des actualités : « actuelles » ou « hors-sujet »
+  showUsed: false, // afficher aussi les actualités déjà citées dans une autre synthèse
   lastDates: {}, // date de la dernière synthèse de chaque sujet (AAAA-MM-JJ ou null)
 };
 
@@ -236,6 +239,7 @@ function applyData({ version, syntheses }) {
   state.syntheses = syntheses;
   state.lastDates[state.sujet] = lastSynthesisDate(syntheses);
   renderAges();
+  renderNews();
   // La synthèse en cours de modification a pu changer de place (ajout ou
   // suppression ailleurs) : on la retrouve par son titre.
   if (state.editing) {
@@ -268,7 +272,8 @@ function renderList() {
 
       const excerpt = document.createElement('p');
       excerpt.className = 'item-excerpt';
-      excerpt.textContent = plainText(synthese.texte).slice(0, 160);
+      // Extrait du texte, sans le bloc « Sources »
+      excerpt.textContent = plainText(setSources(synthese.texte, [], () => '')).slice(0, 160);
 
       const actions = document.createElement('div');
       actions.className = 'item-actions';
@@ -319,7 +324,7 @@ function fillEditor(titre, texte) {
   state.saved = { titre, texte };
   setStatus('');
   refreshPreview();
-  syncNewsChecks();
+  renderNews();
 }
 
 function startNew() {
@@ -565,7 +570,13 @@ function refreshPreview() {
   if (!$('preview').hidden) $('preview-content').innerHTML = renderPreview($('titre').value, $('texte').value);
 }
 
-// --- Actualités du sujet : sources de la synthèse, et « Hors sujet » ----------------------
+// --- Actualités du sujet : sources de la synthèse, « Hors sujet » ---------------------
+//
+// Deux onglets : « Dernières actualités » (celles du site) et « Hors sujet »
+// (écartées, à remettre si besoin). Une actualité déjà citée dans une autre
+// synthèse publiée est masquée, sauf avec « Afficher les utilisées », qui la
+// montre avec l'étiquette « utilisé ». Celles de la synthèse en cours restent
+// visibles, pour pouvoir les cocher et décocher.
 
 async function loadNews() {
   const sujet = state.sujet;
@@ -581,53 +592,131 @@ async function loadNews() {
 }
 
 function setNews(data, version) {
-  // Les plus récentes d'abord, comme sur le site
-  const items = [...data.actualites].sort((a, b) => b.date.localeCompare(a.date) || a.titre.localeCompare(b.titre, 'fr'));
-  state.news = { data, version, items };
+  state.news = { data, version, items: [...data.actualites].sort(byDate) };
   renderNews();
 }
 
-function renderNews() {
-  const { items } = state.news;
-  const cited = citedUrls($('texte').value);
-  $('news-empty').hidden = items.length > 0;
-  $('news-list').replaceChildren(
-    ...items.slice(0, state.newsShown).map((item) => {
-      const li = document.createElement('li');
-      li.className = 'news-item';
-
-      const label = document.createElement('label');
-      label.className = 'news-check';
-      const box = document.createElement('input');
-      box.type = 'checkbox';
-      box.dataset.url = item.url;
-      box.checked = cited.has(item.url);
-      box.addEventListener('change', () => toggleSource(item, box));
-      const title = document.createElement('span');
-      title.className = 'news-title';
-      title.textContent = item.titre;
-      label.append(box, title);
-
-      const meta = document.createElement('p');
-      meta.className = 'news-meta';
-      const link = document.createElement('a');
-      link.href = item.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.textContent = 'lire ↗';
-      meta.append(`${formatDay(item.date)} · ${item.source} · `, link);
-
-      li.append(label, meta, button('Hors sujet', () => discardNews(item), `Retirer « ${item.titre} » de la veille`, 'tui-btn tui-btn--small danger'));
-      return li;
-    }),
-  );
-  const rest = items.length - state.newsShown;
-  $('news-more').hidden = rest <= 0;
-  $('news-more').textContent = `Voir les ${rest} plus ancienne${rest > 1 ? 's' : ''}`;
+// Synthèses publiées, sauf celle en cours de modification
+function otherSyntheses() {
+  return state.syntheses.filter((_, i) => i !== state.editing?.index);
 }
 
+function renderNews() {
+  const horsSujet = [...(state.news.data?.horsSujet ?? [])].sort((a, b) => (b.ecarteLe ?? '').localeCompare(a.ecarteLe ?? '') || byDate(a, b));
+  const onHorsSujet = state.newsTab === 'hors-sujet';
+  const used = usage(otherSyntheses());
+  const cited = citedUrls($('texte').value);
+  const hiddenUsed = state.news.items.filter((a) => used.has(a.url) && !cited.has(a.url));
+  const visible = state.news.items.filter((a) => state.showUsed || !used.has(a.url) || cited.has(a.url));
+  const list = onHorsSujet ? horsSujet : visible;
+
+  // Onglets, avec leur nombre d'actualités
+  for (const [id, label, count] of [['news-tab-actuelles', 'Dernières actualités', visible.length], ['news-tab-hors-sujet', 'Hors sujet', horsSujet.length]]) {
+    const tab = $(id);
+    const selected = (id === 'news-tab-hors-sujet') === onHorsSujet;
+    tab.textContent = `${label} (${count})`;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  }
+  $('news-hint').textContent = onHorsSujet
+    ? 'Actualités retirées du site : la collecte ne les reproposera pas. « Remettre » les replace dans la veille.'
+    : "Cochez celles dont parle la synthèse : leurs liens s'ajoutent en fin de texte, sous « Sources ». Celles déjà citées dans une autre synthèse sont masquées. « Hors sujet » les retire du site, sans les perdre.";
+  $('news-empty').hidden = list.length > 0;
+  $('news-empty').textContent = onHorsSujet
+    ? 'Aucune actualité écartée.'
+    : state.news.items.length
+      ? 'Toutes les actualités sont déjà utilisées dans vos synthèses.'
+      : "Aucune actualité pour l'instant : la prochaine collecte du lundi remplira cette liste.";
+
+  $('news-list').replaceChildren(...list.slice(0, state.newsShown).map((item) => (onHorsSujet ? discardedItem(item) : newsItem(item, cited, used))));
+
+  const rest = list.length - state.newsShown;
+  $('news-more').hidden = rest <= 0;
+  $('news-more').textContent = `Voir les ${rest} plus ancienne${rest > 1 ? 's' : ''}`;
+  $('news-used').hidden = onHorsSujet || (hiddenUsed.length === 0 && !state.showUsed);
+  $('news-used').textContent = state.showUsed ? 'Masquer les utilisées' : `Afficher les utilisées (${hiddenUsed.length})`;
+  $('news-used').setAttribute('aria-pressed', String(state.showUsed));
+}
+
+// Une actualité de l'onglet « Dernières actualités » : case à cocher, titre,
+// date et source, lien vers l'article, étiquette « utilisé », « Hors sujet »
+function newsItem(item, cited, used) {
+  const li = document.createElement('li');
+  li.className = 'news-item';
+
+  const label = document.createElement('label');
+  label.className = 'news-check';
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.dataset.url = item.url;
+  box.checked = cited.has(item.url);
+  box.addEventListener('change', () => toggleSource(item, box));
+  const title = document.createElement('span');
+  title.className = 'news-title';
+  title.textContent = item.titre;
+  label.append(box, title);
+
+  li.append(label, newsMeta(item, used.get(item.url)));
+  li.append(button('Hors sujet', () => discardNews(item), `Retirer « ${item.titre} » de la veille`, 'tui-btn tui-btn--small danger'));
+  return li;
+}
+
+// Une actualité de l'onglet « Hors sujet » : titre, date d'écartement, « Remettre »
+function discardedItem(item) {
+  const li = document.createElement('li');
+  li.className = 'news-item discarded';
+  const title = document.createElement('p');
+  title.className = 'news-title';
+  title.textContent = item.titre;
+  const meta = newsMeta(item);
+  if (item.ecarteLe) meta.prepend(`Écartée le ${formatDay(item.ecarteLe)} · `);
+  li.append(title, meta, button('Remettre', () => restoreNews(item), `Remettre « ${item.titre} » dans la veille`, 'tui-btn tui-btn--small'));
+  return li;
+}
+
+// Date, source, lien vers l'article ; « utilisé » si citée dans une synthèse publiée
+function newsMeta(item, usedIn = null) {
+  const meta = document.createElement('p');
+  meta.className = 'news-meta';
+  const link = document.createElement('a');
+  link.href = item.url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = 'lire ↗';
+  meta.append(`${formatDay(item.date)} · ${item.source} · `, link);
+  if (usedIn) {
+    const tag = document.createElement('span');
+    tag.className = 'tag-used';
+    tag.textContent = 'utilisé';
+    tag.title = `Citée dans ${usedIn.map((t) => `« ${t} »`).join(', ')}`;
+    meta.append(' ', tag);
+  }
+  return meta;
+}
+
+// Onglets « Dernières actualités » / « Hors sujet » (← et → au clavier)
+function openNewsTab(tab) {
+  state.newsTab = tab;
+  state.newsShown = 8;
+  renderNews();
+}
+
+$('news-tab-actuelles').addEventListener('click', () => openNewsTab('actuelles'));
+$('news-tab-hors-sujet').addEventListener('click', () => openNewsTab('hors-sujet'));
+$('news-tabs').addEventListener('keydown', (event) => {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+  event.preventDefault();
+  openNewsTab(state.newsTab === 'hors-sujet' ? 'actuelles' : 'hors-sujet');
+  $(state.newsTab === 'hors-sujet' ? 'news-tab-hors-sujet' : 'news-tab-actuelles').focus();
+});
+
+$('news-used').addEventListener('click', () => {
+  state.showUsed = !state.showUsed;
+  renderNews();
+});
+
 $('news-more').addEventListener('click', () => {
-  state.newsShown = state.news.items.length;
+  state.newsShown = Number.POSITIVE_INFINITY;
   renderNews();
 });
 
@@ -651,35 +740,56 @@ function toggleSource(item, box) {
   refreshPreview();
 }
 
-// « Hors sujet » : l'actualité est retirée du fichier du sujet (un commit, le
-// site se republie) et son adresse est notée dans « ecartees » : la collecte
-// du lundi ne la reproposera pas.
+// Écrit le fichier des actualités (un commit) ; en cas de modification faite
+// ailleurs entre-temps (collecte du lundi), la liste est rechargée
+async function saveNews(next, version, message) {
+  try {
+    return await state.client.writeNews(state.sujet, next, version, message);
+  } catch (error) {
+    if (error.status !== 409) throw error;
+    await loadNews();
+    throw new Error("Le fichier des actualités a changé entre-temps (collecte du lundi ?) : la liste vient d'être rechargée, recommencez.", { cause: error });
+  }
+}
+
+// « Hors sujet » : l'actualité quitte le site pour l'onglet « Hors sujet »
 async function discardNews(item) {
   if (state.busy) return;
   const nom = SUJETS.find((s) => s.id === state.sujet).nom;
-  if (!confirm(`Retirer « ${item.titre} » de la veille ${nom} ? Elle disparaîtra du site et ne sera plus proposée.`)) return;
+  if (!confirm(`Retirer « ${item.titre} » de la veille ${nom} ? Elle disparaîtra du site ; vous la retrouverez dans l'onglet « Hors sujet ».`)) return;
   await run("Retrait de l'actualité…", async () => {
     const { data, version } = await state.client.readNews(state.sujet);
-    const actualites = data.actualites.filter((a) => a.url !== item.url);
-    const next = { ...data, actualites, ecartees: [...new Set([...(data.ecartees ?? []), item.url])] };
-    let saved;
-    try {
-      saved = await state.client.writeNews(state.sujet, next, version, `veille(${state.sujet}): actualité « ${item.titre} » retirée (hors sujet)`);
-    } catch (error) {
-      if (error.status !== 409) throw error;
-      await loadNews();
-      throw new Error("Le fichier des actualités a changé entre-temps (collecte du lundi ?) : la liste vient d'être rechargée, recommencez.");
+    const next = discard(data, item.url, new Date().toISOString().slice(0, 10));
+    if (!next) {
+      setNews(data, version);
+      throw new Error("Cette actualité n'est déjà plus dans la veille : la liste vient d'être rechargée.");
     }
+    const saved = await saveNews(next, version, `veille(${state.sujet}): actualité « ${item.titre} » retirée (hors sujet)`);
     setNews(next, saved.version);
     // Si elle était citée, son lien quitte aussi le bloc « Sources »
     const area = $('texte');
-    if (citedUrls(area.value).has(item.url)) {
-      const cited = citedUrls(area.value);
-      cited.delete(item.url);
+    const cited = citedUrls(area.value);
+    if (cited.delete(item.url)) {
       area.value = setSources(area.value, state.news.items.filter((a) => cited.has(a.url)), formatDay);
       refreshPreview();
     }
-    setStatus('Actualité retirée. Le site sera à jour dans 2 à 3 minutes.', 'ok', null, saved.commit);
+    setStatus('Actualité retirée du site (onglet « Hors sujet »). Le site sera à jour dans 2 à 3 minutes.', 'ok', null, saved.commit);
+  });
+}
+
+// « Remettre » : l'actualité revient dans la veille, et sur le site
+async function restoreNews(item) {
+  if (state.busy) return;
+  await run("Remise de l'actualité…", async () => {
+    const { data, version } = await state.client.readNews(state.sujet);
+    const next = restore(data, item.url);
+    if (!next) {
+      setNews(data, version);
+      throw new Error("Cette actualité n'est plus dans « Hors sujet » : la liste vient d'être rechargée.");
+    }
+    const saved = await saveNews(next, version, `veille(${state.sujet}): actualité « ${item.titre} » remise dans la veille`);
+    setNews(next, saved.version);
+    setStatus('Actualité remise dans la veille. Le site sera à jour dans 2 à 3 minutes.', 'ok', null, saved.commit);
   });
 }
 

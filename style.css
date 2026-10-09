@@ -948,3 +948,49 @@ body.busy .news-check {
   color: var(--tui-sel-ink);
   font-weight: 600;
 }
+
+/* Onglets des actualités : « Dernières actualités » / « Hors sujet » */
+.news-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.news-tabs .tui-btn::before,
+.news-tabs .tui-btn::after {
+  content: none;
+}
+
+.news-tabs .tui-btn[aria-selected='true'] {
+  border-color: var(--tui-sel);
+  background: var(--tui-sel);
+  color: var(--tui-sel-ink);
+  font-weight: 600;
+}
+
+/* Actualité déjà citée dans une autre synthèse */
+.tag-used {
+  padding: 0 6px;
+  border: 1px solid var(--tui-sel);
+  color: var(--tui-sel);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Bouton à bascule « Afficher les utilisées » enfoncé */
+#news-used[aria-pressed='true'] {
+  border-color: var(--tui-sel);
+  background: rgb(30 60 140 / 0.14);
+  color: var(--tui-sel);
+  font-weight: 600;
+}
+
+.news-item.discarded .news-meta {
+  margin-left: 0;
+}
+
+.news-item.discarded .news-title {
+  margin: 0;
+}

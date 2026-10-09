@@ -3,7 +3,9 @@
 Page privée pour écrire l'onglet « Mes synthèses » de chacun des trois sujets de veille de mon portfolio [remim.me](https://remim.me/#/veille) (cybersécurité, virtualisation, facturation électronique), sans ouvrir l'éditeur de code : **https://veille.remim.me**
 
 - **Choix du sujet** en haut de la page (← et → au clavier) ; le dernier sujet ouvert est retenu. Sous chaque sujet, l'ancienneté de la dernière synthèse (« synthèse il y a 12 j »), signalée en rouge au-delà de 21 jours ou s'il n'y en a aucune : c'est aussi le seuil du rappel envoyé chaque lundi (issue GitHub, voir le README du site).
-- **Actualités du sujet** sous le texte : cocher celles dont parle la synthèse ajoute leurs liens en fin de texte, dans un bloc « Sources » (réécrit à chaque case cochée ou décochée ; le reste du texte n'est jamais touché). **Hors sujet** retire une actualité du site (un commit) et note son adresse dans `ecartees` : la collecte du lundi ne la reproposera plus.
+- **Actualités du sujet** sous le texte, en deux onglets :
+  - **Dernières actualités** : cocher celles dont parle la synthèse ajoute leurs liens en fin de texte, dans un bloc « Sources » (réécrit à chaque case cochée ou décochée ; le reste du texte n'est jamais touché). Celles déjà citées dans une autre synthèse publiée sont masquées ; **Afficher les utilisées** les montre, avec l'étiquette « utilisé » (au survol : dans quelle synthèse). Celles de la synthèse en cours restent visibles, cochées. **Hors sujet** retire une actualité du site (un commit) sans la perdre.
+  - **Hors sujet** : les actualités écartées, avec leur date d'écartement, gardées dans la liste `horsSujet` du fichier du sujet. La collecte du lundi ne les repropose pas ; **Remettre** en replace une dans la veille, et sur le site.
 
 - **Liste, ajout, modification, suppression** des synthèses. Une nouvelle synthèse se place en haut (la plus récente d'abord), avec un titre qui commence par la date du jour (`09/10/2026 - …`).
 - **Reformuler avec l'IA** : sélectionner un passage (sans sélection : tout le texte). L'IA propose une version plus claire, à accepter (**Remplacer**) ou non (**Garder mon texte**) ; Cmd+Z / Ctrl+Z annule un remplacement. Consignes données à l'IA : garder le sens, les faits, les chiffres, les noms et les liens, ne rien ajouter.
@@ -19,7 +21,7 @@ Une page 100 % statique, publiée par GitHub Pages : pas de serveur, rien à hé
 Navigateur ──► api.github.com ──► dépôt moreauremi.github.io
 (veille.remim.me)                   │
                                     ├─ content/veille/<sujet>/syntheses.md   lu, puis réécrit : un commit par enregistrement
-                                    ├─ content/veille/<sujet>/actualites.json lu (sources), réécrit pour « Hors sujet »
+                                    ├─ content/veille/<sujet>/actualites.json lu (sources), réécrit pour « Hors sujet » et « Remettre »
                                     │                               ──► deploy.yml republie remim.me
                                     │
                                     └─ « Reformuler avec l'IA » :
@@ -62,6 +64,7 @@ style.css            interface whiptail de RémiOS : fond bleu, boîtes grises e
 app.js               comportement de la page
 config.js            dépôt du site, sujets de veille (à garder identiques à veille.sujets du site), workflow
 github.js            API GitHub : lecture et écriture du fichier, reformulation
+actualites.js        actualités d'un sujet : « Hors sujet », « Remettre », actualités déjà utilisées
 stats.js             API GoatCounter : visites par jour, pages les plus vues ; géométrie du graphique
 visites.js           boîte « Visites du site » : chiffres clés, graphique SVG, tableau, pages
 syntheses.js         format des fichiers syntheses.md (une synthèse par titre « ## »)

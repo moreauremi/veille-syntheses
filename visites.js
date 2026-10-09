@@ -9,8 +9,8 @@
 // chiffres restent lisibles sans survol, dans le tableau « Voir les chiffres ».
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=10';
-import { chartGeometry, createStatsClient } from './stats.js?v=10';
+import { GOATCOUNTER } from './config.js?v=12';
+import { chartGeometry, createStatsClient } from './stats.js?v=12';
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORAGE = 'syntheses-goatcounter';

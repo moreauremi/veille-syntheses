@@ -10,8 +10,8 @@
     <title>Synthèses de veille · RémiOS</title>
     <link rel="icon" href="data:,">
     <link rel="preload" href="fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=10">
-    <script type="module" src="app.js?v=10"></script>
+    <link rel="stylesheet" href="style.css?v=12">
+    <script type="module" src="app.js?v=12"></script>
   </head>
   <body>
     <header class="tui-bar">
@@ -150,14 +150,20 @@
               Sélectionnez un passage pour ne reformuler que lui.
             </p>
 
-            <!-- Actualités du sujet : cocher celles dont parle la synthèse -->
+            <!-- Actualités du sujet : cocher celles dont parle la synthèse ; onglet
+                 « Hors sujet » pour retrouver (et remettre) celles écartées -->
             <section class="panel news" aria-labelledby="news-title">
               <h3 class="panel-title" id="news-title">Actualités du sujet</h3>
-              <p class="hint">Cochez celles dont parle la synthèse : leurs liens s'ajoutent en fin de texte, sous « Sources ». « Hors sujet » retire une actualité du site, et la collecte ne la reproposera plus.</p>
+              <div class="news-tabs" id="news-tabs" role="tablist" aria-label="Actualités du sujet">
+                <button type="button" class="tui-btn tui-btn--small" role="tab" id="news-tab-actuelles" aria-selected="true" aria-controls="news-list">Dernières actualités</button>
+                <button type="button" class="tui-btn tui-btn--small" role="tab" id="news-tab-hors-sujet" aria-selected="false" aria-controls="news-list" tabindex="-1">Hors sujet</button>
+              </div>
+              <p class="hint" id="news-hint"></p>
               <p class="hint" id="news-status" role="status"></p>
-              <p class="hint" id="news-empty" hidden>Aucune actualité pour l'instant : la prochaine collecte du lundi remplira cette liste.</p>
-              <ul class="news-list" id="news-list"></ul>
+              <p class="hint" id="news-empty" hidden></p>
+              <ul class="news-list" id="news-list" role="tabpanel" aria-label="Actualités"></ul>
               <div class="tui-actions">
+                <button type="button" class="tui-btn tui-btn--small" id="news-used" aria-pressed="false" hidden>Afficher les utilisées</button>
                 <button type="button" class="tui-btn tui-btn--small" id="news-more" hidden>Voir les plus anciennes</button>
               </div>
             </section>
