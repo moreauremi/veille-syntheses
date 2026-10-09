@@ -1,0 +1,15 @@
+{
+  "name": "veille-syntheses",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Tableau de bord des synthèses de veille du portfolio RémiOS (https://veille.remim.me)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8068",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

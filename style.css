@@ -1,0 +1,399 @@
+/* Tableau de bord des synthèses : console sombre, comme le démarrage de RémiOS
+   (couleurs reprises de src/styles/tokens.css, dans le dépôt du site). */
+
+:root {
+  color-scheme: dark;
+  --screen: #000000;
+  --panel: #101317;
+  --field: #171b21;
+  --text: #c9ced6;
+  --text-bright: #ffffff;
+  --dim: #8a929c;
+  --ok: #4fd16b;
+  --warn: #f2c14e;
+  --info: #6cb8ff;
+  --err: #ff8a80;
+  --line: #333333;
+  --mono: 'IBM Plex Mono', ui-monospace, 'DejaVu Sans Mono', Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--screen);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+body.busy {
+  cursor: progress;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: var(--text-bright);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+a {
+  color: var(--info);
+}
+
+code {
+  color: var(--text-bright);
+}
+
+:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+}
+
+/* --- Barre du haut --- */
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bar-title {
+  margin: 0;
+}
+
+.prompt {
+  color: var(--ok);
+}
+
+.path {
+  color: var(--info);
+}
+
+.bar-links {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* --- Champs et boutons --- */
+
+label {
+  display: block;
+  margin-top: 16px;
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+input,
+textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--text-bright);
+  font: inherit;
+}
+
+textarea {
+  min-height: 18rem;
+  resize: vertical;
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+textarea[readonly] {
+  opacity: 0.6;
+}
+
+button {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--text-bright);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--dim);
+}
+
+button.primary {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: var(--screen);
+  font-weight: 600;
+}
+
+button.danger {
+  color: var(--err);
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--info);
+  text-decoration: underline;
+}
+
+body.busy button {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.hint {
+  margin: 4px 0 0;
+  color: var(--dim);
+}
+
+.status {
+  min-height: 1.5em;
+  margin: 12px 0 0;
+}
+
+.status.ok {
+  color: var(--ok);
+}
+
+.status.info {
+  color: var(--info);
+}
+
+.status.err {
+  color: var(--err);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* --- Connexion --- */
+
+.login {
+  display: grid;
+  place-items: center;
+  padding: 48px 16px;
+}
+
+.login-box {
+  width: 100%;
+  max-width: 24rem;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.login-box button {
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* --- Tableau de bord : liste à gauche, éditeur à droite --- */
+
+.dashboard {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  gap: 24px;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+@media (max-width: 52rem) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.list-panel,
+.editor {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.list-panel {
+  align-self: start;
+}
+
+.panel-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.count {
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+
+.item.current .item-title {
+  color: var(--warn);
+}
+
+.item.current .item-title::before {
+  content: '> ';
+}
+
+.item-title {
+  margin: 0;
+  color: var(--text-bright);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.item-excerpt {
+  margin: 4px 0 8px;
+  color: var(--dim);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.item-actions button {
+  padding: 4px 10px;
+  font-size: 0.8125rem;
+}
+
+/* --- Proposition de l'IA et aperçu --- */
+
+.suggestion,
+.preview {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.suggestion {
+  border-color: var(--info);
+}
+
+.suggestion-text {
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 4px;
+  background: var(--field);
+  color: var(--text-bright);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prose {
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.prose h2 {
+  margin: 12px 0 8px;
+  font-family: var(--mono);
+  font-size: 1.0625rem;
+}
+
+.prose h3 {
+  margin: 16px 0 8px;
+  font-family: var(--mono);
+}
+
+.prose img {
+  max-width: 100%;
+}
+
+.image-ph {
+  color: var(--dim);
+  font-style: italic;
+}
+
+/* --- Connexion : case à cocher et aide pour créer le jeton --- */
+
+label.check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  color: var(--text);
+  font-weight: 400;
+}
+
+label.check input {
+  width: auto;
+  margin: 0;
+}
+
+.help {
+  margin-top: 16px;
+  color: var(--dim);
+}
+
+.help summary {
+  color: var(--info);
+  cursor: pointer;
+}
+
+.help ol {
+  padding-left: 1.25rem;
+}
+
+.help li + li {
+  margin-top: 4px;
+}
+
+.help strong,
+.help code {
+  color: var(--text-bright);
+}

@@ -1,0 +1,22 @@
+# Tests à chaque envoi (push) : format du fichier des synthèses, échanges
+# avec GitHub (simulés) et aperçu. La page elle-même est publiée par
+# GitHub Pages directement depuis la branche main.
+
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm test
