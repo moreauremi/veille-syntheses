@@ -9,8 +9,8 @@
 // chiffres restent lisibles sans survol, dans le tableau « Voir les chiffres ».
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=14';
-import { chartGeometry, createStatsClient } from './stats.js?v=14';
+import { GOATCOUNTER } from './config.js?v=16';
+import { chartGeometry, createStatsClient } from './stats.js?v=16';
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORAGE = 'syntheses-goatcounter';
@@ -29,6 +29,7 @@ const asDate = (day) => new Date(`${day}T00:00:00Z`);
 
 let data = null; // dernières statistiques chargées, pour redessiner à la bonne largeur
 let period = storedPeriod();
+let loading = null; // chargement en cours (AbortController), abandonné si on en lance un autre
 
 function storedPeriod() {
   try {
@@ -126,12 +127,19 @@ async function loadVisits(key = storedKey()) {
   $('visits-error').className = 'status';
   // Pendant le chargement, l'ancien graphique reste affiché, atténué
   $('visits-content').classList.add('loading');
+  loading?.abort();
+  const controller = new AbortController();
+  loading = controller;
   try {
     renderPeriods();
-    data = await createStatsClient(key).load(period);
+    renderLabels();
+    const loaded = await createStatsClient(key).load(period, { signal: controller.signal });
+    if (controller.signal.aborted) return;
+    data = loaded;
     render();
     $('visits-updated').textContent = `Mis à jour à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`;
   } catch (error) {
+    if (error.name === 'AbortError') return; // remplacé par un chargement plus récent
     // Clé refusée : on la redemande ; autre erreur (réseau, GoatCounter…) :
     // message bien visible, la clé est gardée
     if (error.status === 401 || error.status === 403) {
@@ -142,15 +150,25 @@ async function loadVisits(key = storedKey()) {
       $('visits-error').textContent = `Visites indisponibles : ${error.message}`;
     }
   } finally {
-    $('visits-content').classList.remove('loading');
+    // Seul le chargement le plus récent retire l'indication « en cours »
+    if (loading === controller) {
+      loading = null;
+      $('visits-content').classList.remove('loading');
+    }
   }
 }
 
-function render() {
+// Titres qui dépendent de la période : mis à jour dès qu'elle change, avant
+// même l'arrivée des chiffres
+function renderLabels() {
   $('visits-total-label').textContent = `Visiteurs, ${period} derniers jours`;
   $('visits-pages-title').textContent = `Pages les plus vues (${period} jours)`;
   $('visits-refs-title').textContent = `Provenance (${period} jours)`;
   $('visits-table-head').textContent = weekly() ? 'Semaine' : 'Jour';
+}
+
+function render() {
+  renderLabels();
   $('visits-total').textContent = number.format(data.total);
   $('visits-today').textContent = number.format(data.today);
   renderChart();

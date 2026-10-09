@@ -19,7 +19,7 @@ Page privée pour piloter mon portfolio [remim.me](https://remim.me) sans ouvrir
 - **Reformuler avec l'IA** : sélectionner un passage (sans sélection : tout le texte). L'IA propose une version plus claire, à accepter (**Remplacer**) ou non (**Garder mon texte**) ; Cmd+Z / Ctrl+Z annule un remplacement. Consignes données à l'IA : garder le sens, les faits, les chiffres, les noms et les liens, ne rien ajouter.
 - **Aperçu** avec le même rendu Markdown que le site.
 - **Publier** (ou Cmd+S / Ctrl+S) : un commit sur le dépôt du site, qui se republie tout seul en 2 à 3 minutes.
-- **Visites du site** : période de 7, 30 ou 90 jours (une colonne par jour, par semaine sur 90 jours), visiteurs de la période et d'aujourd'hui, graphique (valeur et date au survol ou au clavier, tableau « Voir les chiffres »), pages les plus vues, provenance des visiteurs (moteurs de recherche, LinkedIn, accès direct…). Les chiffres viennent de GoatCounter, lus avec une clé d'API en lecture seule collée une fois dans la page.
+- **Visites du site** : période de 7, 30 ou 90 jours (une colonne par jour, par semaine sur 90 jours), visiteurs de la période et d'aujourd'hui, graphique (valeur et date au survol ou au clavier, tableau « Voir les chiffres »), pages les plus vues, provenance des visiteurs (moteurs de recherche, LinkedIn, accès direct…). Les chiffres viennent de GoatCounter, lus avec une clé d'API en lecture seule collée une fois dans la page. GoatCounter accepte 4 requêtes par seconde, et chaque requête du navigateur compte double (vérification CORS comprise) : les requêtes passent donc par une file, espacées de 0,7 s, retentées après 1 s en cas de refus, et celles d'une période abandonnée ne partent pas.
 
 ## Principe
 

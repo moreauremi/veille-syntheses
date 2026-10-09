@@ -46,7 +46,7 @@ test('graphique : colonnes de 24 px au plus, 2 px d’écart, hauteur proportion
 
 test('chargement : bonne période, clé envoyée, jours sans visite à 0, pages sans les événements', async () => {
   const gc = fakeGoatCounter();
-  const stats = await createStatsClient('cle', { fetch: gc.fetch, today: TODAY }).load(30);
+  const stats = await createStatsClient('cle', { fetch: gc.fetch, today: TODAY, gap: 0, retryDelay: 0 }).load(30);
   assert.deepEqual(gc.calls.map((c) => c.path).sort(), ['/api/v0/stats/hits', '/api/v0/stats/toprefs', '/api/v0/stats/total']);
   assert.ok(gc.calls.every((c) => c.auth === 'Bearer cle'));
   assert.deepEqual([gc.calls[0].params.start, gc.calls[0].params.end], ['2026-09-10T00:00:00Z', '2026-10-10T00:00:00Z']);
@@ -62,7 +62,7 @@ test('chargement : bonne période, clé envoyée, jours sans visite à 0, pages 
 test('clé refusée ou sans permission : message qui dit quoi faire', async () => {
   for (const [status, pattern] of [[401, /refusée/], [403, /permission/]]) {
     const gc = fakeGoatCounter({ status });
-    await assert.rejects(createStatsClient('cle', { fetch: gc.fetch, today: TODAY }).load(), (error) => error.status === status && pattern.test(error.message));
+    await assert.rejects(createStatsClient('cle', { fetch: gc.fetch, today: TODAY, gap: 0, retryDelay: 0 }).load(), (error) => error.status === status && pattern.test(error.message));
   }
 });
 
@@ -73,4 +73,22 @@ test('90 jours : une colonne par semaine, la dernière finissant aujourd’hui',
   assert.deepEqual(weeks.at(-1), { day: '2026-10-03', end: '2026-10-09', count: 7 });
   assert.equal(weeks[0].count, 6, 'la plus ancienne est incomplète');
   assert.equal(weeks.reduce((sum, w) => sum + w.count, 0), 90);
+});
+
+test('limite de GoatCounter : requêtes espacées, nouvel essai après un refus ou une erreur réseau', async () => {
+  const times = [];
+  let calls = 0;
+  const fetch = async (url) => {
+    times.push(Date.now());
+    calls += 1;
+    if (calls === 1) throw new TypeError('NetworkError when attempting to fetch resource.');
+    if (calls === 2) return new Response('{}', { status: 429 });
+    const u = new URL(url);
+    const body = u.pathname.endsWith('/total') ? { total: 1, stats: [] } : u.pathname.endsWith('/toprefs') ? { stats: [] } : { hits: [] };
+    return new Response(JSON.stringify(body), { status: 200 });
+  };
+  const stats = await createStatsClient('cle', { fetch, today: TODAY, gap: 40, retryDelay: 0 }).load(7);
+  assert.equal(stats.total, 1, 'chargé malgré une erreur réseau puis un 429');
+  assert.equal(calls, 5, '3 requêtes + 2 nouveaux essais');
+  for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] >= 35, 'requêtes espacées');
 });

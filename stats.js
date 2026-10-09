@@ -10,25 +10,73 @@
 // géométrie du graphique (testée sans navigateur, voir test/stats.test.js).
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=14';
+import { GOATCOUNTER } from './config.js?v=16';
 
 const DAY = 24 * 60 * 60 * 1000;
 
+// GoatCounter accepte 4 requêtes par seconde, et chaque requête du navigateur
+// compte double : elle est précédée d'une vérification CORS (en-tête
+// Authorization). Au-delà, il répond « 429 », que le navigateur présente comme
+// une erreur réseau. Les requêtes passent donc par une file unique pour toute
+// la page : l'une après l'autre, espacées, et retentées après 1 s en cas de
+// refus. Une requête d'un chargement abandonné (période changée entre-temps)
+// sort de la file sans être envoyée ni retarder les suivantes.
+const GAP = 700;
+const RETRY_DELAY = 1100;
+let queue = Promise.resolve();
+let lastSent = 0;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const abortError = () => new DOMException('Chargement abandonné', 'AbortError');
+
+function inQueue(task, gap, signal) {
+  const run = queue.then(async () => {
+    if (signal?.aborted) throw abortError();
+    const wait = lastSent + gap - Date.now();
+    if (wait > 0) await sleep(wait);
+    if (signal?.aborted) throw abortError();
+    lastSent = Date.now();
+    return task();
+  });
+  queue = run.catch(() => {});
+  return run;
+}
+
 export class StatsError extends Error {
-  constructor(status, message) {
-    super(message);
+  constructor(status, message, options) {
+    super(message, options);
     this.status = status;
   }
 }
 
 //   key   : clé d'API GoatCounter (permission « lire les statistiques »)
 //   today : date du jour (remplaçable dans les tests)
-export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThis), today = new Date() } = {}) {
-  async function request(path, params) {
-    const response = await fetch(`${GOATCOUNTER}/api/v0/${path}?${new URLSearchParams(params)}`, {
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      cache: 'no-store',
-    });
+//   gap, retryDelay : espacement des requêtes et attente avant un nouvel essai (ms)
+export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThis), today = new Date(), gap = GAP, retryDelay = RETRY_DELAY } = {}) {
+  async function request(path, params, signal, attempt = 1) {
+    let response;
+    try {
+      response = await inQueue(
+        () => fetch(`${GOATCOUNTER}/api/v0/${path}?${new URLSearchParams(params)}`, {
+          headers: { Authorization: `Bearer ${key}` },
+          cache: 'no-store',
+        }),
+        gap,
+        signal,
+      );
+    } catch (error) {
+      if (error.name === 'AbortError') throw error;
+      // Erreur réseau : le plus souvent la limite de requêtes de GoatCounter
+      if (attempt < 3) {
+        await sleep(retryDelay);
+        return request(path, params, signal, attempt + 1);
+      }
+      throw new StatsError(0, 'GoatCounter ne répond pas (réseau, ou trop de requêtes) : réessayez dans un instant.', { cause: error });
+    }
+    if (response.status === 429 && attempt < 3) {
+      await sleep(retryDelay);
+      return request(path, params, signal, attempt + 1);
+    }
     if (!response.ok) throw await toError(response);
     return response.json();
   }
@@ -40,7 +88,8 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
     // visiteurs ; nom vide = sans site d'origine), refsError (message si la
     // provenance n'a pas pu être lue : le reste s'affiche quand même).
     // Les jours sans visite valent 0.
-    async load(days = 30) {
+    // `signal` : AbortSignal, pour abandonner le chargement (période changée)
+    async load(days = 30, { signal } = {}) {
       const list = lastDays(today, days);
       // Heures pleines, en UTC : du premier jour 0 h au lendemain du dernier 0 h
       const range = {
@@ -48,9 +97,12 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
         end: `${isoDay(new Date(Date.parse(`${list.at(-1)}T00:00:00Z`) + DAY))}T00:00:00Z`,
       };
       const [totals, hits, refs] = await Promise.all([
-        request('stats/total', range),
-        request('stats/hits', { ...range, limit: '5' }),
-        request('stats/toprefs', { ...range, limit: '6' }).catch((error) => ({ error })),
+        request('stats/total', range, signal),
+        request('stats/hits', { ...range, limit: '5' }, signal),
+        request('stats/toprefs', { ...range, limit: '6' }, signal).catch((error) => {
+          if (error.name === 'AbortError') throw error;
+          return { error };
+        }),
       ]);
       const byDay = new Map((totals.stats ?? []).map((s) => [s.day, s.daily ?? 0]));
       const series = list.map((day) => ({ day, count: byDay.get(day) ?? 0 }));
