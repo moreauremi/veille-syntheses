@@ -5,10 +5,10 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SITE } from './config.js';
-import { createClient } from './github.js';
-import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js';
-import { renderPreview } from './apercu.js';
+import { SITE } from './config.js?v=3';
+import { createClient } from './github.js?v=3';
+import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=3';
+import { renderPreview } from './apercu.js?v=3';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';

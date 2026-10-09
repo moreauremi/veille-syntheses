@@ -58,7 +58,8 @@ syntheses.js         format de syntheses.md (une synthèse par titre « ## »)
 apercu.js            aperçu Markdown, au plus près du rendu du site
 fonts/               IBM Plex Mono (400 et 600), la police du portfolio, licence OFL
 vendor/              marked (conversion Markdown, licence MIT)
-test/                tests (npm test) : format, échanges avec une fausse API GitHub, aperçu
+scripts/version.mjs  numéro de version des fichiers (npm run version), contre le cache des navigateurs
+test/                tests (npm test) : format, échanges avec une fausse API GitHub, aperçu, versions
 CNAME                domaine de la page pour GitHub Pages
 ```
 
@@ -67,7 +68,10 @@ CNAME                domaine de la page pour GitHub Pages
 ```bash
 npm test         # tests (Node.js 22 ou plus, aucune dépendance à installer)
 npm start        # sert la page sur http://localhost:8068
+npm run version  # après chaque modification de la page, avant de l'envoyer
 ```
+
+**Pourquoi `npm run version`** : GitHub Pages demande aux navigateurs de garder chaque fichier 10 minutes en cache. Juste après une mise à jour, un navigateur pourrait mélanger la nouvelle page et l'ancien style ou d'anciens scripts. Chaque fichier est donc appelé avec un numéro de version (`style.css?v=3`), que cette commande augmente partout à la fois ; `npm test` échoue si un fichier a été oublié. Après une mise à jour, la nouvelle version s'affiche au plus tard 10 minutes plus tard (tout de suite avec Cmd+Maj+R).
 
 Attention : même en local, **Publier écrit sur le dépôt du site et le republie**. Penser à `git pull` dans le dossier du portfolio avant d'y modifier `syntheses.md` à la main.
 

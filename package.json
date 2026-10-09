@@ -7,7 +7,8 @@
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 8068",
-    "test": "node --test"
+    "test": "node --test",
+    "version": "node scripts/version.mjs"
   },
   "engines": {
     "node": ">=22"

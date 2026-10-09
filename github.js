@@ -13,7 +13,7 @@
 //     workflow, attend sa réponse dans le même brouillon, puis le supprime.
 // =============================================================================
 
-import { BRANCHE, DEPOT, FICHIER, WORKFLOW } from './config.js';
+import { BRANCHE, DEPOT, FICHIER, WORKFLOW } from './config.js?v=3';
 
 const API = `https://api.github.com/repos/${DEPOT}`;
 const TAG_PREFIX = 'reformulation-';
