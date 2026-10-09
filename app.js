@@ -5,10 +5,11 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SUJETS, pageDuSujet } from './config.js?v=6';
-import { createClient } from './github.js?v=6';
-import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=6';
-import { renderPreview } from './apercu.js?v=6';
+import { SUJETS, pageDuSujet } from './config.js?v=7';
+import { createClient } from './github.js?v=7';
+import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=7';
+import { renderPreview } from './apercu.js?v=7';
+import { forgetVisitsKey, showVisits } from './visites.js?v=7';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';
@@ -88,6 +89,7 @@ async function connect(token) {
   renderSujets();
   applyFile(data);
   if (!state.editing && !$('texte').value) startNew();
+  showVisits();
 }
 
 // --- Choix du sujet de veille -------------------------------------------------------
@@ -169,6 +171,7 @@ $('login-form').addEventListener('submit', async (event) => {
 $('logout').addEventListener('click', () => {
   if (isDirty() && !confirm('Des modifications ne sont pas enregistrées. Se déconnecter quand même ?')) return;
   forgetToken();
+  forgetVisitsKey();
   resetEditor();
   showLogin();
 });

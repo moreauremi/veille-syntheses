@@ -8,6 +8,7 @@ Page privée pour écrire l'onglet « Mes synthèses » de chacun des trois suje
 - **Reformuler avec l'IA** : sélectionner un passage (sans sélection : tout le texte). L'IA propose une version plus claire, à accepter (**Remplacer**) ou non (**Garder mon texte**) ; Cmd+Z / Ctrl+Z annule un remplacement. Consignes données à l'IA : garder le sens, les faits, les chiffres, les noms et les liens, ne rien ajouter.
 - **Aperçu** avec le même rendu Markdown que le site.
 - **Publier** (ou Cmd+S / Ctrl+S) : un commit sur le dépôt du site, qui se republie tout seul en 2 à 3 minutes.
+- **Visites du site** : visiteurs des 30 derniers jours et d'aujourd'hui, graphique par jour (valeur et date au survol ou au clavier, tableau « Voir les chiffres »), pages les plus vues. Les chiffres viennent de GoatCounter, lus avec une clé d'API en lecture seule collée une fois dans la page.
 
 ## Principe
 
@@ -39,11 +40,14 @@ Le workflow et son script sont dans le dépôt du site : [`.github/workflows/ref
 
 L'IA utilise le secret `COPILOT_GITHUB_TOKEN` du dépôt du site, déjà en place pour la veille automatique : rien à ajouter.
 
+3. **Visites du site** (facultatif) : sur https://remim.goatcounter.com, son nom d'utilisateur (menu du haut) → **API** → **New API key**, avec seulement la permission de lire les statistiques. La coller dans la boîte « Visites du site ». Le site compte les pages lui-même (`src/utils/audience.js` du dépôt du site) : voir « Mesure d'audience » dans son README.
+
 ## Sécurité
 
+- **La clé GoatCounter** (lecture seule) reste elle aussi dans le navigateur et n'est envoyée qu'à GoatCounter ; « Oublier la clé » ou « Se déconnecter » l'effacent.
 - **Le jeton** reste dans le navigateur (case « Rester connecté » : `localStorage`, sinon seulement l'onglet ouvert) et n'est envoyé qu'à `api.github.com`. Il n'a accès qu'au dépôt du site, avec deux droits. « Se déconnecter » l'efface. Sans jeton, la page ne peut rien faire : elle ne contient aucun secret.
 - **Adresse à part** (`veille.remim.me`, pas `remim.me/…`) : le jeton est rangé pour cette seule origine, hors de portée du code du portfolio.
-- **Aucun script étranger** : politique de sécurité (CSP) stricte, la page ne charge que ses propres fichiers et ne contacte que l'API GitHub. Le Markdown de l'aperçu ne peut rien exécuter : le HTML écrit dans le texte est affiché tel quel, les liens `javascript:` sont neutralisés. Les textes sont affichés avec `textContent`.
+- **Aucun script étranger** : politique de sécurité (CSP) stricte, la page ne charge que ses propres fichiers et ne contacte que l'API GitHub et celle de GoatCounter. Le Markdown de l'aperçu ne peut rien exécuter : le HTML écrit dans le texte est affiché tel quel, les liens `javascript:` sont neutralisés. Les textes sont affichés avec `textContent`.
 - **Pas d'affichage dans un cadre** d'un autre site (GitHub Pages ne permet pas l'en-tête qui l'interdit : la page vérifie elle-même).
 - **Pas d'écrasement** : avant d'écrire, la page relit le fichier ; s'il a changé ailleurs (modification depuis VS Code, autre onglet), rien n'est écrit, la liste est rechargée et le texte en cours conservé.
 - **Reformulation** : le dépôt du site est public, donc les journaux de ses workflows aussi. Le passage n'y est jamais écrit : il voyage dans un brouillon privé, supprimé dès la réponse lue. Copilot n'a droit à aucun outil (ni commande, ni écriture) et n'hérite pas du jeton du dépôt.
@@ -56,12 +60,14 @@ style.css            interface whiptail de RémiOS : fond bleu, boîtes grises e
 app.js               comportement de la page
 config.js            dépôt du site, sujets de veille (à garder identiques à veille.sujets du site), workflow
 github.js            API GitHub : lecture et écriture du fichier, reformulation
+stats.js             API GoatCounter : visites par jour, pages les plus vues ; géométrie du graphique
+visites.js           boîte « Visites du site » : chiffres clés, graphique SVG, tableau, pages
 syntheses.js         format des fichiers syntheses.md (une synthèse par titre « ## »)
 apercu.js            aperçu Markdown, au plus près du rendu du site
 fonts/               IBM Plex Mono (400 et 600), la police du portfolio, licence OFL
 vendor/              marked (conversion Markdown, licence MIT)
 scripts/version.mjs  numéro de version des fichiers (npm run version), contre le cache des navigateurs
-test/                tests (npm test) : format, échanges avec une fausse API GitHub, aperçu, versions
+test/                tests (npm test) : format, fausses API GitHub et GoatCounter, graphique, aperçu, versions
 CNAME                domaine de la page pour GitHub Pages
 ```
 

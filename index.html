@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src https://api.github.com https://remim.goatcounter.com; base-uri 'none'; form-action 'none'">
     <meta name="referrer" content="no-referrer">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#1e3c8c">
     <title>Synthèses de veille · RémiOS</title>
     <link rel="icon" href="data:,">
     <link rel="preload" href="fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=6">
-    <script type="module" src="app.js?v=6"></script>
+    <link rel="stylesheet" href="style.css?v=7">
+    <script type="module" src="app.js?v=7"></script>
   </head>
   <body>
     <header class="tui-bar">
@@ -59,6 +59,7 @@
       <!-- Tableau de bord : les sujets en haut, la liste à gauche, l'éditeur à droite -->
       <div class="dashboard" id="dashboard" hidden>
         <div class="sujets" id="sujets" role="tablist" aria-label="Sujet de veille"></div>
+        <div class="side">
         <section class="tui-box list-box" aria-labelledby="list-title">
           <h2 class="tui-box-title" id="list-title">Publiées <span id="count"></span></h2>
           <div class="tui-box-inner">
@@ -69,6 +70,58 @@
             <button type="button" class="tui-btn" id="new">Nouvelle synthèse</button>
           </div>
         </section>
+
+        <!-- Visites du site (GoatCounter), voir visites.js -->
+        <section class="tui-box visits-box" id="visits" aria-labelledby="visits-title" hidden>
+          <h2 class="tui-box-title" id="visits-title">Visites du site</h2>
+          <div class="tui-box-inner">
+            <form id="visits-form" hidden>
+              <p class="intro">Fréquentation de remim.me, mesurée par GoatCounter : il faut une clé d'API en lecture.</p>
+              <label class="field">
+                <span>Clé d'API GoatCounter</span>
+                <input id="visits-key" type="password" autocomplete="off" spellcheck="false" required>
+              </label>
+              <p class="status err" id="visits-status" role="alert"></p>
+              <details class="help">
+                <summary>Créer la clé</summary>
+                <ol>
+                  <li>Ouvrir <a href="https://remim.goatcounter.com" target="_blank" rel="noopener noreferrer">remim.goatcounter.com ↗</a>, puis son nom d'utilisateur (menu du haut) → <strong>API</strong>.</li>
+                  <li><strong>New API key</strong>, avec seulement la permission de <strong>lire les statistiques</strong>.</li>
+                  <li>La coller ici. Elle reste dans ce navigateur et n'est envoyée qu'à GoatCounter.</li>
+                </ol>
+              </details>
+              <div class="tui-actions">
+                <button type="submit" class="tui-btn tui-btn--primary">Afficher les visites</button>
+              </div>
+            </form>
+
+            <div id="visits-content" hidden>
+              <div class="figures">
+                <p class="figure"><span class="figure-label">Visiteurs, 30 derniers jours</span><span class="figure-value hero" id="visits-total">–</span></p>
+                <p class="figure"><span class="figure-label">Aujourd'hui</span><span class="figure-value" id="visits-today">–</span></p>
+              </div>
+              <div class="chart" id="visits-chart">
+                <div class="chart-tooltip" id="visits-tooltip" hidden></div>
+              </div>
+              <details class="help">
+                <summary>Voir les chiffres</summary>
+                <table class="visits-table">
+                  <thead><tr><th scope="col">Jour</th><th scope="col">Visiteurs</th></tr></thead>
+                  <tbody id="visits-table-body"></tbody>
+                </table>
+              </details>
+              <h3 class="panel-title pages-title">Pages les plus vues (30 jours)</h3>
+              <p class="hint" id="visits-pages-empty" hidden>Aucune visite pour l'instant.</p>
+              <ol class="pages" id="visits-pages"></ol>
+              <p class="hint"><span id="visits-updated"></span> <a id="visits-link" href="https://remim.goatcounter.com" target="_blank" rel="noopener noreferrer">Tout voir sur GoatCounter ↗</a></p>
+            </div>
+          </div>
+          <div class="tui-actions" id="visits-actions">
+            <button type="button" class="tui-btn" id="visits-refresh">Actualiser</button>
+            <button type="button" class="tui-btn" id="visits-forget">Oublier la clé</button>
+          </div>
+        </section>
+        </div>
 
         <section class="tui-box editor-box" aria-labelledby="editor-title">
           <h2 class="tui-box-title" id="editor-title">Nouvelle synthèse</h2>

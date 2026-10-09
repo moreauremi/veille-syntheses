@@ -365,9 +365,14 @@ code {
   overflow-wrap: anywhere;
 }
 
-/* Sans message, la zone reste dans la page (lecteurs d'écran) sans prendre de place */
+/* Sans message, la zone reste dans la page (lecteurs d'écran) sans prendre de
+   place, et sans préfixe « [ÉCHEC] » ou « [  OK  ] » orphelin */
 .status:empty {
   margin: 0;
+}
+
+.status:empty::before {
+  content: none;
 }
 
 .status.ok::before,
@@ -674,4 +679,164 @@ body.busy .sujet {
   .tui-actions {
     gap: 10px 12px;
   }
+}
+
+/* --- Visites du site (visites.js) --- */
+
+/* Colonne de gauche : la liste, puis les visites */
+.side {
+  display: grid;
+  gap: 40px;
+  align-content: start;
+}
+
+.visits-box .loading {
+  opacity: 0.55;
+}
+
+/* Chiffres clés : le total en grand, aujourd'hui à côté */
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  align-items: flex-end;
+}
+
+.figure {
+  display: grid;
+  margin: 0;
+}
+
+.figure-label {
+  color: var(--tui-muted);
+  font-size: var(--font-size-small);
+}
+
+.figure-value {
+  color: var(--tui-ink);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.figure-value.hero {
+  font-size: 2rem;
+}
+
+/* Graphique : colonnes fines dans le bleu de RémiOS, graduations discrètes */
+.chart {
+  position: relative;
+  margin-top: 12px;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart .grid {
+  stroke: #a9a9a9;
+  stroke-width: 1;
+}
+
+.chart .tick {
+  fill: var(--tui-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart .peak {
+  fill: var(--tui-ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chart .column {
+  fill: var(--tui-sel);
+}
+
+.chart .hit {
+  fill: transparent;
+}
+
+.chart .day {
+  cursor: default;
+  outline: none;
+}
+
+/* Jour survolé ou atteint au clavier : la colonne s'éclaircit, la case se marque */
+.chart .day:hover .column,
+.chart .day:focus .column {
+  fill: #3a5fc4;
+}
+
+.chart .day:focus-visible .hit {
+  fill: rgb(30 60 140 / 0.12);
+  stroke: var(--tui-ink);
+  stroke-width: 1;
+}
+
+.chart-tooltip {
+  position: absolute;
+  bottom: calc(100% - 8px);
+  display: grid;
+  padding: 4px 8px;
+  border: 1px solid var(--tui-ink);
+  background: var(--tui-field-bg);
+  color: var(--tui-ink);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.chart-tooltip strong {
+  font-size: var(--font-size);
+}
+
+.visits-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: var(--font-size-small);
+}
+
+.visits-table th,
+.visits-table td {
+  padding: 2px 4px;
+  border-bottom: 1px solid #b0b0b0;
+  text-align: left;
+}
+
+.visits-table td:last-child,
+.visits-table th:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pages-title {
+  margin-top: 16px;
+}
+
+/* Pages les plus vues : l'adresse, et le nombre aligné à droite */
+.pages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pages li {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid #b0b0b0;
+}
+
+.page-path {
+  overflow-wrap: anywhere;
+}
+
+.page-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }

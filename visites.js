@@ -1,0 +1,231 @@
+// =============================================================================
+// Boîte « Visites du site » : chiffres clés, graphique des 30 derniers jours,
+// tableau des chiffres et pages les plus vues (données : stats.js)
+// -----------------------------------------------------------------------------
+// Le graphique est un SVG construit élément par élément : les textes (dates,
+// adresses des pages) passent par textContent, jamais par du HTML. Chaque jour
+// a sa zone de survol (toute la hauteur) et se lit aussi au clavier ; tous les
+// chiffres restent lisibles sans survol, dans le tableau « Voir les chiffres ».
+// =============================================================================
+
+import { GOATCOUNTER } from './config.js?v=7';
+import { chartGeometry, createStatsClient } from './stats.js?v=7';
+
+const $ = (id) => document.getElementById(id);
+const KEY_STORAGE = 'syntheses-goatcounter';
+const DAYS = 30;
+const PLOT_HEIGHT = 120; // hauteur des colonnes ; la bande des dates s'ajoute en dessous
+const AXIS_HEIGHT = 22;
+const LEFT = 28; // place des graduations de l'axe vertical
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const dayLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const shortLabel = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const number = new Intl.NumberFormat('fr-FR');
+const asDate = (day) => new Date(`${day}T00:00:00Z`);
+
+let data = null; // dernières statistiques chargées, pour redessiner à la bonne largeur
+
+function storedKey() {
+  try {
+    return localStorage.getItem(KEY_STORAGE) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+// À l'ouverture du tableau de bord
+export function showVisits() {
+  $('visits').hidden = false;
+  if (storedKey()) loadVisits();
+  else showKeyForm();
+}
+
+// « Se déconnecter » efface aussi la clé GoatCounter
+export function forgetVisitsKey() {
+  try {
+    localStorage.removeItem(KEY_STORAGE);
+  } catch {
+    // rien à effacer
+  }
+  data = null;
+}
+
+function showKeyForm(message = '') {
+  $('visits-form').hidden = false;
+  $('visits-content').hidden = true;
+  $('visits-actions').hidden = true;
+  $('visits-status').textContent = message;
+}
+
+$('visits-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const key = $('visits-key').value.trim();
+  if (!key) return;
+  try {
+    localStorage.setItem(KEY_STORAGE, key);
+  } catch {
+    // stockage indisponible : la clé vaut jusqu'au rechargement
+  }
+  $('visits-key').value = '';
+  loadVisits(key);
+});
+
+$('visits-refresh').addEventListener('click', () => loadVisits());
+
+$('visits-forget').addEventListener('click', () => {
+  forgetVisitsKey();
+  showKeyForm();
+});
+
+async function loadVisits(key = storedKey()) {
+  $('visits-form').hidden = true;
+  $('visits-content').hidden = false;
+  $('visits-actions').hidden = false;
+  // Pendant le chargement, l'ancien graphique reste affiché, atténué
+  $('visits-content').classList.add('loading');
+  try {
+    data = await createStatsClient(key).load(DAYS);
+    render();
+    $('visits-updated').textContent = `Mis à jour à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`;
+  } catch (error) {
+    // Clé refusée : on la redemande ; autre erreur (réseau…) : message sous le graphique
+    if (error.status === 401 || error.status === 403) {
+      forgetVisitsKey();
+      showKeyForm(error.message);
+    } else {
+      $('visits-updated').textContent = error.message;
+    }
+  } finally {
+    $('visits-content').classList.remove('loading');
+  }
+}
+
+function render() {
+  $('visits-total').textContent = number.format(data.total);
+  $('visits-today').textContent = number.format(data.today);
+  renderChart();
+  renderTable();
+  renderPages();
+}
+
+// --- Graphique ---------------------------------------------------------------------
+
+function svg(name, attributes = {}) {
+  const element = document.createElementNS(SVG_NS, name);
+  for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, String(value));
+  return element;
+}
+
+// Colonne aux angles du haut arrondis (4 px), carrée sur la ligne de base
+function columnPath({ x, y, width, height }) {
+  const r = Math.min(4, width / 2, height);
+  return `M${x},${y + height}V${y + r}Q${x},${y} ${x + r},${y}H${x + width - r}Q${x + width},${y} ${x + width},${y + r}V${y + height}Z`;
+}
+
+function renderChart() {
+  const chart = $('visits-chart');
+  const width = Math.max(200, Math.floor(chart.clientWidth));
+  const { max, bars } = chartGeometry(data.days, { width, height: PLOT_HEIGHT, left: LEFT });
+  const root = svg('svg', { width, height: PLOT_HEIGHT + AXIS_HEIGHT, viewBox: `0 0 ${width} ${PLOT_HEIGHT + AXIS_HEIGHT}`, role: 'group' });
+  root.setAttribute('aria-label', `Visiteurs par jour, ${DAYS} derniers jours`);
+
+  // Graduations : 0 et le maximum « rond », en lignes fines discrètes
+  for (const value of [0, max]) {
+    const y = PLOT_HEIGHT - (value / max) * PLOT_HEIGHT + 0.5;
+    root.append(svg('line', { x1: LEFT, x2: width, y1: y, y2: y, class: 'grid' }));
+    const label = svg('text', { x: LEFT - 6, y: y + 4, 'text-anchor': 'end', class: 'tick' });
+    label.textContent = number.format(value);
+    root.append(label);
+  }
+
+  // Dates : premier jour, milieu, aujourd'hui
+  for (const [index, anchor] of [[0, 'start'], [Math.floor(bars.length / 2), 'middle'], [bars.length - 1, 'end']]) {
+    const bar = bars[index];
+    const x = anchor === 'start' ? bar.slot.x : anchor === 'end' ? bar.slot.x + bar.slot.width : bar.x + bar.width / 2;
+    const label = svg('text', { x, y: PLOT_HEIGHT + 16, 'text-anchor': anchor, class: 'tick' });
+    label.textContent = index === bars.length - 1 ? "aujourd'hui" : shortLabel.format(asDate(bar.day));
+    root.append(label);
+  }
+
+  // Colonnes, et une zone de survol (et de focus clavier) par jour
+  const peak = bars.reduce((best, bar) => (bar.count > best.count ? bar : best), bars[0]);
+  for (const bar of bars) {
+    const group = svg('g', { class: 'day', tabindex: 0, role: 'img' });
+    group.setAttribute('aria-label', `${dayLabel.format(asDate(bar.day))} : ${bar.count} visiteur${bar.count > 1 ? 's' : ''}`);
+    group.append(svg('rect', { x: bar.slot.x, y: 0, width: bar.slot.width, height: PLOT_HEIGHT, class: 'hit' }));
+    if (bar.count > 0) group.append(svg('path', { d: columnPath(bar), class: 'column' }));
+    for (const type of ['pointerenter', 'focus']) group.addEventListener(type, () => showTooltip(bar));
+    for (const type of ['pointerleave', 'blur']) group.addEventListener(type, hideTooltip);
+    root.append(group);
+  }
+
+  // Étiquette directe, une seule : la valeur du jour le plus fort
+  if (peak.count > 0) {
+    const label = svg('text', { x: peak.x + peak.width / 2, y: Math.max(10, peak.y - 5), 'text-anchor': 'middle', class: 'peak' });
+    label.textContent = number.format(peak.count);
+    root.append(label);
+  }
+
+  chart.replaceChildren(root, $('visits-tooltip'));
+}
+
+function showTooltip(bar) {
+  const tooltip = $('visits-tooltip');
+  const value = document.createElement('strong');
+  value.textContent = `${number.format(bar.count)} visiteur${bar.count > 1 ? 's' : ''}`;
+  const day = document.createElement('span');
+  day.textContent = dayLabel.format(asDate(bar.day));
+  tooltip.replaceChildren(value, day);
+  tooltip.hidden = false;
+  // Au-dessus de la colonne, sans sortir du graphique
+  const chartWidth = $('visits-chart').clientWidth;
+  const center = bar.slot.x + bar.slot.width / 2;
+  const left = Math.min(Math.max(center - tooltip.offsetWidth / 2, 0), chartWidth - tooltip.offsetWidth);
+  tooltip.style.left = `${left}px`;
+}
+
+function hideTooltip() {
+  $('visits-tooltip').hidden = true;
+}
+
+// --- Tableau des chiffres et pages les plus vues -------------------------------------
+
+function renderTable() {
+  $('visits-table-body').replaceChildren(
+    ...[...data.days].reverse().map((d) => {
+      const row = document.createElement('tr');
+      const day = document.createElement('td');
+      day.textContent = dayLabel.format(asDate(d.day));
+      const count = document.createElement('td');
+      count.textContent = number.format(d.count);
+      row.append(day, count);
+      return row;
+    }),
+  );
+}
+
+function renderPages() {
+  $('visits-pages-empty').hidden = data.pages.length > 0;
+  $('visits-pages').replaceChildren(
+    ...data.pages.map((page) => {
+      const item = document.createElement('li');
+      const path = document.createElement('span');
+      path.className = 'page-path';
+      path.textContent = page.path;
+      const count = document.createElement('span');
+      count.className = 'page-count';
+      count.textContent = number.format(page.count);
+      item.append(path, count);
+      return item;
+    }),
+  );
+  $('visits-link').href = GOATCOUNTER;
+}
+
+// Largeur de la boîte changée (fenêtre, téléphone tourné) : graphique redessiné
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => data && !$('visits-content').hidden && renderChart(), 150);
+});

@@ -19,3 +19,6 @@ export const fichier = (sujet) => `content/veille/${sujet}/syntheses.md`;
 
 // Onglet du sujet sur le site, pour le lien « Voir sur le site »
 export const pageDuSujet = (sujet) => `https://remim.me/#/veille/${sujet}`;
+
+// Statistiques de visites du site (GoatCounter) : adresse du compte
+export const GOATCOUNTER = 'https://remim.goatcounter.com';
