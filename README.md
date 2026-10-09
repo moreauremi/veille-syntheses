@@ -26,7 +26,7 @@ Navigateur ──► api.github.com ──► dépôt moreauremi.github.io
                                        4. la page lit la réponse, puis supprime le brouillon
 ```
 
-La reformulation prend environ une minute : le temps que GitHub démarre une machine pour le workflow.
+La reformulation prend de 30 secondes à une minute : le temps que GitHub démarre une machine pour le workflow.
 
 Le workflow et son script sont dans le dépôt du site : [`.github/workflows/reformuler.yml`](https://github.com/moreauremi/moreauremi.github.io/blob/main/.github/workflows/reformuler.yml) et [`scripts/reformuler.mjs`](https://github.com/moreauremi/moreauremi.github.io/blob/main/scripts/reformuler.mjs).
 

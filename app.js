@@ -365,7 +365,7 @@ $('rephrase').addEventListener('click', async () => {
   // Le texte reste en lecture seule jusqu'au choix : la proposition remplacera
   // exactement le passage envoyé.
   area.readOnly = true;
-  const waiting = "GitHub prépare une machine pour l'IA, environ une minute";
+  const waiting = "GitHub prépare une machine pour l'IA : 30 secondes à une minute";
   await run(`Reformulation en cours… (${waiting})`, async () => {
     const texte = await state.client.rephrase(passage.trim(), (seconds) => {
       setStatus(`Reformulation en cours… ${seconds} s (${waiting})`, 'info');
