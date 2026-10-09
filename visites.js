@@ -8,13 +8,14 @@
 // chiffres restent lisibles sans survol, dans le tableau « Voir les chiffres ».
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=7';
-import { chartGeometry, createStatsClient } from './stats.js?v=7';
+import { GOATCOUNTER } from './config.js?v=8';
+import { chartGeometry, createStatsClient } from './stats.js?v=8';
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORAGE = 'syntheses-goatcounter';
 const DAYS = 30;
 const PLOT_HEIGHT = 120; // hauteur des colonnes ; la bande des dates s'ajoute en dessous
+const TOP = 16; // marge au-dessus des colonnes, pour l'étiquette du jour le plus fort
 const AXIS_HEIGHT = 22;
 const LEFT = 28; // place des graduations de l'axe vertical
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -127,16 +128,21 @@ function renderChart() {
   const chart = $('visits-chart');
   const width = Math.max(200, Math.floor(chart.clientWidth));
   const { max, bars } = chartGeometry(data.days, { width, height: PLOT_HEIGHT, left: LEFT });
-  const root = svg('svg', { width, height: PLOT_HEIGHT + AXIS_HEIGHT, viewBox: `0 0 ${width} ${PLOT_HEIGHT + AXIS_HEIGHT}`, role: 'group' });
+  const total = TOP + PLOT_HEIGHT + AXIS_HEIGHT;
+  const root = svg('svg', { width, height: total, viewBox: `0 0 ${width} ${total}`, role: 'group' });
   root.setAttribute('aria-label', `Visiteurs par jour, ${DAYS} derniers jours`);
+  // Zone du graphique, sous une marge qui laisse la place à l'étiquette du
+  // jour le plus fort, même quand sa colonne atteint la graduation du haut
+  const plot = svg('g', { transform: `translate(0,${TOP})` });
+  root.append(plot);
 
   // Graduations : 0 et le maximum « rond », en lignes fines discrètes
   for (const value of [0, max]) {
     const y = PLOT_HEIGHT - (value / max) * PLOT_HEIGHT + 0.5;
-    root.append(svg('line', { x1: LEFT, x2: width, y1: y, y2: y, class: 'grid' }));
+    plot.append(svg('line', { x1: LEFT, x2: width, y1: y, y2: y, class: 'grid' }));
     const label = svg('text', { x: LEFT - 6, y: y + 4, 'text-anchor': 'end', class: 'tick' });
     label.textContent = number.format(value);
-    root.append(label);
+    plot.append(label);
   }
 
   // Dates : premier jour, milieu, aujourd'hui
@@ -145,7 +151,7 @@ function renderChart() {
     const x = anchor === 'start' ? bar.slot.x : anchor === 'end' ? bar.slot.x + bar.slot.width : bar.x + bar.width / 2;
     const label = svg('text', { x, y: PLOT_HEIGHT + 16, 'text-anchor': anchor, class: 'tick' });
     label.textContent = index === bars.length - 1 ? "aujourd'hui" : shortLabel.format(asDate(bar.day));
-    root.append(label);
+    plot.append(label);
   }
 
   // Colonnes, et une zone de survol (et de focus clavier) par jour
@@ -157,14 +163,14 @@ function renderChart() {
     if (bar.count > 0) group.append(svg('path', { d: columnPath(bar), class: 'column' }));
     for (const type of ['pointerenter', 'focus']) group.addEventListener(type, () => showTooltip(bar));
     for (const type of ['pointerleave', 'blur']) group.addEventListener(type, hideTooltip);
-    root.append(group);
+    plot.append(group);
   }
 
   // Étiquette directe, une seule : la valeur du jour le plus fort
   if (peak.count > 0) {
-    const label = svg('text', { x: peak.x + peak.width / 2, y: Math.max(10, peak.y - 5), 'text-anchor': 'middle', class: 'peak' });
+    const label = svg('text', { x: peak.x + peak.width / 2, y: peak.y - 5, 'text-anchor': 'middle', class: 'peak' });
     label.textContent = number.format(peak.count);
-    root.append(label);
+    plot.append(label);
   }
 
   chart.replaceChildren(root, $('visits-tooltip'));
