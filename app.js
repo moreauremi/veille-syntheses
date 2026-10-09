@@ -5,10 +5,10 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SITE } from './config.js?v=3';
-import { createClient } from './github.js?v=3';
-import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=3';
-import { renderPreview } from './apercu.js?v=3';
+import { SITE } from './config.js?v=4';
+import { createClient } from './github.js?v=4';
+import { checkSynthese, parseSyntheses, serializeSyntheses } from './syntheses.js?v=4';
+import { renderPreview } from './apercu.js?v=4';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';
@@ -178,9 +178,10 @@ function plainText(markdown) {
 
 // --- Édition ------------------------------------------------------------------------
 
-function currentMonthTitle() {
-  const month = new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date());
-  return `${month[0].toUpperCase()}${month.slice(1)} : `;
+// Début du titre d'une nouvelle synthèse : la date du jour, « 09/10/2026 - »
+function todayTitle() {
+  const date = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date());
+  return `${date} - `;
 }
 
 function fillEditor(titre, texte) {
@@ -195,7 +196,7 @@ function fillEditor(titre, texte) {
 function startNew() {
   state.editing = null;
   fillEditor('', '');
-  $('titre').value = currentMonthTitle(); // pré-rempli, pas une modification
+  $('titre').value = todayTitle(); // pré-rempli, pas une modification
   state.saved.titre = $('titre').value;
   renderList();
   renderEditorTitle();
@@ -276,7 +277,7 @@ function checkIndex(syntheses, index) {
 async function save() {
   if (state.busy) return;
   if (state.suggestion) return setStatus("Choisissez d'abord : remplacer par la proposition de l'IA, ou garder votre texte.", 'err');
-  if ($('titre').value.trim() === currentMonthTitle().trim()) return setStatus('Complétez le titre de la synthèse.', 'err', $('titre'));
+  if ($('titre').value.trim() === todayTitle().trim()) return setStatus('Complétez le titre de la synthèse.', 'err', $('titre'));
   const checked = checkSynthese({ titre: $('titre').value, texte: $('texte').value });
   if (checked.errors) return setStatus(`Impossible d'enregistrer : ${checked.errors.join(' ; ')}.`, 'err');
   const synthese = checked.synthese;

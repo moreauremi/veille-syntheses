@@ -2,7 +2,7 @@
 
 Page privée pour écrire l'onglet « Mes synthèses » de mon portfolio [remim.me](https://remim.me/#/veille), sans ouvrir l'éditeur de code : **https://veille.remim.me**
 
-- **Liste, ajout, modification, suppression** des synthèses. Une nouvelle synthèse se place en haut (la plus récente d'abord), avec un titre pré-rempli au mois en cours (`Octobre 2026 : …`).
+- **Liste, ajout, modification, suppression** des synthèses. Une nouvelle synthèse se place en haut (la plus récente d'abord), avec un titre qui commence par la date du jour (`09/10/2026 - …`).
 - **Reformuler avec l'IA** : sélectionner un passage (sans sélection : tout le texte). L'IA propose une version plus claire, à accepter (**Remplacer**) ou non (**Garder mon texte**) ; Cmd+Z / Ctrl+Z annule un remplacement. Consignes données à l'IA : garder le sens, les faits, les chiffres, les noms et les liens, ne rien ajouter.
 - **Aperçu** avec le même rendu Markdown que le site.
 - **Publier** (ou Cmd+S / Ctrl+S) : un commit sur le dépôt du site, qui se republie tout seul en 2 à 3 minutes.
