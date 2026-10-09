@@ -7,28 +7,34 @@
     <meta name="referrer" content="no-referrer">
     <meta name="robots" content="noindex, nofollow">
     <meta name="theme-color" content="#1e3c8c">
-    <title>Synthèses de veille · RémiOS</title>
+    <title>Tableau de bord · RémiOS</title>
     <link rel="icon" href="data:,">
     <link rel="preload" href="fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=12">
-    <script type="module" src="app.js?v=12"></script>
+    <link rel="stylesheet" href="style.css?v=14">
+    <script type="module" src="app.js?v=14"></script>
   </head>
   <body>
     <header class="tui-bar">
       <span class="tui-bar-tty">RémiOS 1.0 <span class="tui-bar-extra">(tty3)</span></span>
-      <span class="tui-bar-title">Synthèses de veille</span>
+      <span class="tui-bar-title">Tableau de bord</span>
       <nav class="tui-bar-links" id="bar-links" aria-label="Session" hidden>
-        <a class="tui-bar-link" id="site-link" href="#" target="_blank" rel="noopener noreferrer">Voir sur le site ↗</a>
+        <a class="tui-bar-link" id="site-link" href="https://remim.me" target="_blank" rel="noopener noreferrer">Voir le site ↗</a>
         <button type="button" class="tui-bar-link" id="logout">Se déconnecter</button>
       </nav>
     </header>
+
+    <!-- Les deux vues du tableau de bord (touches 1 et 2) -->
+    <nav class="views" id="views" aria-label="Vues du tableau de bord" hidden>
+      <a class="view-tab" href="#/" data-view="home"><span class="item-key" aria-hidden="true">1</span>Vue d'ensemble</a>
+      <a class="view-tab" href="#/syntheses" data-view="syntheses"><span class="item-key" aria-hidden="true">2</span>Synthèses</a>
+    </nav>
 
     <main class="tui-stage">
       <!-- Connexion : un jeton GitHub, gardé dans ce navigateur -->
       <section class="tui-box login-box" id="login" aria-labelledby="login-title" hidden>
         <h1 class="tui-box-title" id="login-title">Connexion</h1>
         <form class="tui-box-inner" id="login-form">
-          <p class="intro">Tableau de bord de l'onglet « Mes synthèses » du portfolio.</p>
+          <p class="intro">Tableau de bord du portfolio remim.me : veille, synthèses, publication et visites.</p>
 
           <label class="field">
             <span>Jeton GitHub</span>
@@ -56,23 +62,38 @@
         </form>
       </section>
 
-      <!-- Tableau de bord : les sujets en haut, la liste à gauche, l'éditeur à droite -->
-      <div class="dashboard" id="dashboard" hidden>
-        <div class="sujets" id="sujets" role="tablist" aria-label="Sujet de veille"></div>
-        <div class="side">
-        <section class="tui-box list-box" aria-labelledby="list-title">
-          <h2 class="tui-box-title" id="list-title">Publiées <span id="count"></span></h2>
+      <!-- Vue d'ensemble : veille, site, visites -->
+      <div class="home" id="view-home" hidden>
+        <section class="tui-box veille-box" aria-labelledby="veille-title">
+          <h2 class="tui-box-title" id="veille-title">Veille</h2>
           <div class="tui-box-inner">
-            <p class="intro" id="empty" hidden>Aucune synthèse pour l'instant : le site affiche « À venir ».</p>
-            <ol class="list" id="list"></ol>
+            <p class="hint" id="topics-status" role="status"></p>
+            <ul class="topics" id="topics"></ul>
+            <p class="hint" id="next-collect"></p>
+          </div>
+        </section>
+
+        <section class="tui-box site-box" aria-labelledby="site-title">
+          <h2 class="tui-box-title" id="site-title">Site</h2>
+          <div class="tui-box-inner">
+            <ul class="journal" id="site-status"></ul>
+            <h3 class="panel-title links-title">Accès rapides</h3>
+            <ul class="quick-links">
+              <li><a href="https://remim.me" target="_blank" rel="noopener noreferrer">remim.me ↗</a></li>
+              <li><a href="https://remim.me/#/jury" target="_blank" rel="noopener noreferrer">Vue jury ↗</a></li>
+              <li><a href="https://remim.goatcounter.com" target="_blank" rel="noopener noreferrer">GoatCounter ↗</a></li>
+              <li><a href="https://github.com/moreauremi/moreauremi.github.io/actions" target="_blank" rel="noopener noreferrer">GitHub Actions ↗</a></li>
+              <li><a href="https://github.com/moreauremi/moreauremi.github.io" target="_blank" rel="noopener noreferrer">Dépôt du site ↗</a></li>
+              <li><a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer">Search Console ↗</a></li>
+            </ul>
           </div>
           <div class="tui-actions">
-            <button type="button" class="tui-btn" id="new">Nouvelle synthèse</button>
+            <button type="button" class="tui-btn" id="overview-refresh">Actualiser</button>
           </div>
         </section>
 
         <!-- Visites du site (GoatCounter), voir visites.js -->
-        <section class="tui-box visits-box" id="visits" aria-labelledby="visits-title" hidden>
+        <section class="tui-box visits-box" id="visits" aria-labelledby="visits-title">
           <h2 class="tui-box-title" id="visits-title">Visites du site</h2>
           <div class="tui-box-inner">
             <form id="visits-form" hidden>
@@ -95,41 +116,60 @@
               </div>
             </form>
 
-            <div id="visits-content" hidden>
-              <div class="periods" id="visits-periods" role="group" aria-label="Période">
-                <button type="button" class="tui-btn tui-btn--small" data-period="7" aria-pressed="false">7 jours</button>
-                <button type="button" class="tui-btn tui-btn--small" data-period="30" aria-pressed="false">30 jours</button>
-                <button type="button" class="tui-btn tui-btn--small" data-period="90" aria-pressed="false">90 jours</button>
+            <div class="visits-content" id="visits-content" hidden>
+              <div class="visits-main">
+                <div class="periods" id="visits-periods" role="group" aria-label="Période">
+                  <button type="button" class="tui-btn tui-btn--small" data-period="7" aria-pressed="false">7 jours</button>
+                  <button type="button" class="tui-btn tui-btn--small" data-period="30" aria-pressed="false">30 jours</button>
+                  <button type="button" class="tui-btn tui-btn--small" data-period="90" aria-pressed="false">90 jours</button>
+                </div>
+                <div class="figures">
+                  <p class="figure"><span class="figure-label" id="visits-total-label">Visiteurs, 30 derniers jours</span><span class="figure-value hero" id="visits-total">–</span></p>
+                  <p class="figure"><span class="figure-label">Aujourd'hui</span><span class="figure-value" id="visits-today">–</span></p>
+                </div>
+                <div class="chart" id="visits-chart">
+                  <div class="chart-tooltip" id="visits-tooltip" hidden></div>
+                </div>
+                <details class="help">
+                  <summary>Voir les chiffres</summary>
+                  <table class="visits-table">
+                    <thead><tr><th scope="col" id="visits-table-head">Jour</th><th scope="col">Visiteurs</th></tr></thead>
+                    <tbody id="visits-table-body"></tbody>
+                  </table>
+                </details>
               </div>
-              <div class="figures">
-                <p class="figure"><span class="figure-label" id="visits-total-label">Visiteurs, 30 derniers jours</span><span class="figure-value hero" id="visits-total">–</span></p>
-                <p class="figure"><span class="figure-label">Aujourd'hui</span><span class="figure-value" id="visits-today">–</span></p>
+              <div class="visits-lists">
+                <h3 class="panel-title" id="visits-pages-title">Pages les plus vues (30 jours)</h3>
+                <p class="hint" id="visits-pages-empty" hidden>Aucune visite pour l'instant.</p>
+                <ol class="pages" id="visits-pages"></ol>
+                <h3 class="panel-title pages-title" id="visits-refs-title">Provenance (30 jours)</h3>
+                <p class="hint" id="visits-refs-empty" hidden>Aucune visite pour l'instant.</p>
+                <ol class="pages" id="visits-refs"></ol>
               </div>
-              <div class="chart" id="visits-chart">
-                <div class="chart-tooltip" id="visits-tooltip" hidden></div>
-              </div>
-              <details class="help">
-                <summary>Voir les chiffres</summary>
-                <table class="visits-table">
-                  <thead><tr><th scope="col" id="visits-table-head">Jour</th><th scope="col">Visiteurs</th></tr></thead>
-                  <tbody id="visits-table-body"></tbody>
-                </table>
-              </details>
-              <h3 class="panel-title pages-title" id="visits-pages-title">Pages les plus vues (30 jours)</h3>
-              <p class="hint" id="visits-pages-empty" hidden>Aucune visite pour l'instant.</p>
-              <ol class="pages" id="visits-pages"></ol>
-              <h3 class="panel-title pages-title" id="visits-refs-title">Provenance (30 jours)</h3>
-              <p class="hint" id="visits-refs-empty" hidden>Aucune visite pour l'instant.</p>
-              <ol class="pages" id="visits-refs"></ol>
-              <p class="hint"><span id="visits-updated"></span> <a id="visits-link" href="https://remim.goatcounter.com" target="_blank" rel="noopener noreferrer">Tout voir sur GoatCounter ↗</a></p>
+              <p class="status" id="visits-error" role="status"></p>
+              <p class="hint visits-foot"><span id="visits-updated"></span> <a id="visits-link" href="https://remim.goatcounter.com" target="_blank" rel="noopener noreferrer">Tout voir sur GoatCounter ↗</a></p>
             </div>
           </div>
-          <div class="tui-actions" id="visits-actions">
+          <div class="tui-actions" id="visits-actions" hidden>
             <button type="button" class="tui-btn" id="visits-refresh">Actualiser</button>
             <button type="button" class="tui-btn" id="visits-forget">Oublier la clé</button>
           </div>
         </section>
-        </div>
+      </div>
+
+      <!-- Synthèses : les sujets en haut, la liste à gauche, l'éditeur à droite -->
+      <div class="dashboard" id="view-syntheses" hidden>
+        <div class="sujets" id="sujets" role="tablist" aria-label="Sujet de veille"></div>
+        <section class="tui-box list-box" aria-labelledby="list-title">
+          <h2 class="tui-box-title" id="list-title">Publiées <span id="count"></span></h2>
+          <div class="tui-box-inner">
+            <p class="intro" id="empty" hidden>Aucune synthèse pour l'instant : le site affiche « À venir ».</p>
+            <ol class="list" id="list"></ol>
+          </div>
+          <div class="tui-actions">
+            <button type="button" class="tui-btn" id="new">Nouvelle synthèse</button>
+          </div>
+        </section>
 
         <section class="tui-box editor-box" aria-labelledby="editor-title">
           <h2 class="tui-box-title" id="editor-title">Nouvelle synthèse</h2>
@@ -196,7 +236,7 @@
       </div>
     </main>
 
-    <p class="tui-hints">Cmd+S / Ctrl+S publier · sélection + « Reformuler » : ce passage seulement · Cmd+Z / Ctrl+Z annuler</p>
+    <p class="tui-hints" id="hints">1 vue d'ensemble · 2 synthèses</p>
     <footer class="tui-footer">
       <a href="https://remim.me">remim.me</a> · <a href="https://github.com/moreauremi/veille-syntheses">code source</a>
     </footer>

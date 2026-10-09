@@ -2,7 +2,7 @@
   "name": "veille-syntheses",
   "private": true,
   "version": "1.0.0",
-  "description": "Tableau de bord des synthèses de veille du portfolio RémiOS (https://veille.remim.me)",
+  "description": "Tableau de bord des synthèses de veille du portfolio RémiOS (https://dashboard.remim.me)",
   "license": "MIT",
   "type": "module",
   "scripts": {

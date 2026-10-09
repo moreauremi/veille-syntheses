@@ -10,7 +10,7 @@
 // géométrie du graphique (testée sans navigateur, voir test/stats.test.js).
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=12';
+import { GOATCOUNTER } from './config.js?v=14';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -37,7 +37,9 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
     // Les `days` derniers jours, aujourd'hui compris → { days: [{ day, count }],
     // bars (par jour, ou par semaine au-delà de 31 jours), total, today,
     // pages: [{ path, count }], refs: [{ name, count }] (provenance des
-    // visiteurs ; nom vide = sans site d'origine). Les jours sans visite valent 0.
+    // visiteurs ; nom vide = sans site d'origine), refsError (message si la
+    // provenance n'a pas pu être lue : le reste s'affiche quand même).
+    // Les jours sans visite valent 0.
     async load(days = 30) {
       const list = lastDays(today, days);
       // Heures pleines, en UTC : du premier jour 0 h au lendemain du dernier 0 h
@@ -48,7 +50,7 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
       const [totals, hits, refs] = await Promise.all([
         request('stats/total', range),
         request('stats/hits', { ...range, limit: '5' }),
-        request('stats/toprefs', { ...range, limit: '6' }),
+        request('stats/toprefs', { ...range, limit: '6' }).catch((error) => ({ error })),
       ]);
       const byDay = new Map((totals.stats ?? []).map((s) => [s.day, s.daily ?? 0]));
       const series = list.map((day) => ({ day, count: byDay.get(day) ?? 0 }));
@@ -62,6 +64,7 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
         today: series.at(-1).count,
         pages: (hits.hits ?? []).filter((h) => !h.event).map((h) => ({ path: h.path, count: h.count ?? 0 })),
         refs: (refs.stats ?? []).map((r) => ({ name: r.name ?? '', count: r.count ?? 0 })),
+        refsError: refs.error?.message ?? null,
       };
     },
   };

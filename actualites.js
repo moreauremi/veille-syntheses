@@ -10,7 +10,7 @@
 // enregistre (un commit). Testées dans test/actualites.test.js.
 // =============================================================================
 
-import { citedUrls } from './syntheses.js?v=12';
+import { citedUrls } from './syntheses.js?v=14';
 
 // Les plus récentes d'abord, comme sur le site
 export const byDate = (a, b) => b.date.localeCompare(a.date) || a.titre.localeCompare(b.titre, 'fr');

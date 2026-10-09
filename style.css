@@ -710,13 +710,6 @@ body.busy .sujet {
 
 /* --- Visites du site (visites.js) --- */
 
-/* Colonne de gauche : la liste, puis les visites */
-.side {
-  display: grid;
-  gap: 40px;
-  align-content: start;
-}
-
 .visits-box .loading {
   opacity: 0.55;
 }
@@ -993,4 +986,200 @@ body.busy .news-check {
 
 .news-item.discarded .news-title {
   margin: 0;
+}
+
+/* --- Vues du tableau de bord (touches 1 et 2) --- */
+
+.views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  /* Même largeur que les boîtes en dessous (1240 px + les marges) */
+  width: min(calc(1240px + 2 * var(--gutter)), 100%);
+  margin: 0 auto;
+  padding: 20px var(--gutter) 0;
+}
+
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--tui-hint);
+  color: var(--tui-bar-ink);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.view-tab:hover {
+  text-decoration: underline;
+}
+
+.view-tab .item-key {
+  margin-right: 10px;
+  color: var(--tui-sel-key);
+}
+
+.view-tab[aria-current='page'] {
+  border-color: var(--tui-box);
+  background: var(--tui-box);
+  color: var(--tui-ink);
+  font-weight: 600;
+}
+
+.view-tab[aria-current='page'] .item-key {
+  color: var(--tui-title);
+}
+
+/* --- Vue d'ensemble : veille et site côte à côte, visites en dessous --- */
+
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+  gap: 40px calc(var(--shadow-offset) + 24px);
+  align-items: start;
+  width: min(1240px, 100%);
+}
+
+.home .tui-box {
+  width: 100%;
+}
+
+.home .visits-box {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 960px) {
+  .home {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Un sujet de veille par ligne, dans un fin cadre comme les rubriques du menu */
+.topics {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.topic {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--tui-inner-border);
+}
+
+.topic-head {
+  margin: 0;
+  color: var(--tui-sel);
+  font-weight: 600;
+}
+
+.topic-head .item-key {
+  margin-right: 10px;
+  color: var(--tui-title);
+}
+
+.topic-status,
+.topic-meta {
+  grid-column: 1;
+  margin: 0;
+}
+
+.topic-meta {
+  color: var(--tui-muted);
+  font-size: var(--font-size-small);
+}
+
+.topic > .tui-btn {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+}
+
+#next-collect {
+  margin-top: 12px;
+}
+
+/* Petits écrans : « Écrire » sous le texte du sujet */
+@media (max-width: 720px) {
+  .topic {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .topic > .tui-btn {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+    margin-top: 6px;
+  }
+}
+
+/* Lignes façon journal de démarrage : [  OK  ] [ WARN ] [FAILED] [ .... ] */
+.journal {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  list-style: none;
+}
+
+.line .badge {
+  flex: none;
+  font-weight: 600;
+  white-space: pre;
+}
+
+.line.ok .badge {
+  color: var(--tui-ok);
+}
+
+.line.warn .badge,
+.line.err .badge {
+  color: var(--tui-title);
+}
+
+.line.info .badge {
+  color: var(--tui-sel);
+}
+
+.links-title {
+  margin-top: 18px;
+}
+
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Visites, en grand : le graphique à gauche, les pages et la provenance à droite */
+.visits-content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(14rem, 1fr);
+  gap: 8px 32px;
+}
+
+.visits-content > .status,
+.visits-content > .visits-foot {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 960px) {
+  .visits-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

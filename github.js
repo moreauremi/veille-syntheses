@@ -13,7 +13,7 @@
 //     workflow, attend sa réponse dans le même brouillon, puis le supprime.
 // =============================================================================
 
-import { BRANCHE, DEPOT, WORKFLOW, fichier, fichierActualites } from './config.js?v=12';
+import { BRANCHE, DEPOT, WORKFLOW, fichier, fichierActualites } from './config.js?v=14';
 
 const API = `https://api.github.com/repos/${DEPOT}`;
 const TAG_PREFIX = 'reformulation-';
@@ -79,6 +79,13 @@ export function createClient(token, { fetch = globalThis.fetch.bind(globalThis),
   }
 
   return {
+    // Dernière exécution d'un workflow du dépôt du site (deploy.yml, veille.yml) :
+    // { status, conclusion, created_at, updated_at, html_url }, ou null
+    async latestRun(workflow) {
+      const data = await request('GET', `/actions/workflows/${workflow}/runs?per_page=1`);
+      return data.workflow_runs[0] ?? null;
+    },
+
     // Synthèses d'un sujet (Markdown)
     readFile: (sujet) => readText(fichier(sujet)),
     writeFile: (sujet, source, version, message) => writeText(fichier(sujet), source, version, message),

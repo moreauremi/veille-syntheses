@@ -9,8 +9,8 @@
 // chiffres restent lisibles sans survol, dans le tableau « Voir les chiffres ».
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=12';
-import { chartGeometry, createStatsClient } from './stats.js?v=12';
+import { GOATCOUNTER } from './config.js?v=14';
+import { chartGeometry, createStatsClient } from './stats.js?v=14';
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORAGE = 'syntheses-goatcounter';
@@ -57,7 +57,6 @@ function storedKey() {
 
 // À l'ouverture du tableau de bord
 export function showVisits() {
-  $('visits').hidden = false;
   if (storedKey()) loadVisits();
   else showKeyForm();
 }
@@ -123,6 +122,8 @@ async function loadVisits(key = storedKey()) {
   $('visits-form').hidden = true;
   $('visits-content').hidden = false;
   $('visits-actions').hidden = false;
+  $('visits-error').textContent = '';
+  $('visits-error').className = 'status';
   // Pendant le chargement, l'ancien graphique reste affiché, atténué
   $('visits-content').classList.add('loading');
   try {
@@ -131,12 +132,14 @@ async function loadVisits(key = storedKey()) {
     render();
     $('visits-updated').textContent = `Mis à jour à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}.`;
   } catch (error) {
-    // Clé refusée : on la redemande ; autre erreur (réseau…) : message sous le graphique
+    // Clé refusée : on la redemande ; autre erreur (réseau, GoatCounter…) :
+    // message bien visible, la clé est gardée
     if (error.status === 401 || error.status === 403) {
       forgetVisitsKey();
       showKeyForm(error.message);
     } else {
-      $('visits-updated').textContent = error.message;
+      $('visits-error').className = 'status err';
+      $('visits-error').textContent = `Visites indisponibles : ${error.message}`;
     }
   } finally {
     $('visits-content').classList.remove('loading');
@@ -278,7 +281,8 @@ function renderPages() {
 // Provenance : moteur de recherche, réseau social, site… ; nom vide = arrivée
 // directe (adresse tapée, favori, lien dans un e-mail ou un document)
 function renderRefs() {
-  $('visits-refs-empty').hidden = data.refs.length > 0;
+  $('visits-refs-empty').hidden = data.refs.length > 0 && !data.refsError;
+  $('visits-refs-empty').textContent = data.refsError ? `Provenance indisponible : ${data.refsError}` : 'Aucune visite pour l\'instant.';
   $('visits-refs').replaceChildren(
     ...data.refs.map((ref) => {
       const item = document.createElement('li');
@@ -294,9 +298,12 @@ function renderRefs() {
   );
 }
 
-// Largeur de la boîte changée (fenêtre, téléphone tourné) : graphique redessiné
-let resizeTimer;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => data && !$('visits-content').hidden && renderChart(), 150);
-});
+// Largeur du graphique changée (fenêtre, téléphone tourné, vue d'ensemble
+// affichée après avoir été masquée) : graphique redessiné à la bonne largeur
+let lastWidth = 0;
+new ResizeObserver(([entry]) => {
+  const width = Math.floor(entry.contentRect.width);
+  if (!data || width === 0 || width === lastWidth) return;
+  lastWidth = width;
+  renderChart();
+}).observe($('visits-chart'));

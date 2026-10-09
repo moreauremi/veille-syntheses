@@ -1,6 +1,14 @@
-# Synthèses de veille — tableau de bord
+# Tableau de bord du portfolio RémiOS
 
-Page privée pour écrire l'onglet « Mes synthèses » de chacun des trois sujets de veille de mon portfolio [remim.me](https://remim.me/#/veille) (cybersécurité, virtualisation, facturation électronique), sans ouvrir l'éditeur de code : **https://veille.remim.me**
+Page privée pour piloter mon portfolio [remim.me](https://remim.me) sans ouvrir l'éditeur de code : **https://dashboard.remim.me**. Deux vues, au style de RémiOS (touches **1** et **2**, adresses `#/` et `#/syntheses/<sujet>`) :
+
+**1. Vue d'ensemble**
+
+- **Veille** : pour chacun des trois sujets (cybersécurité, virtualisation, facturation électronique), l'ancienneté de la dernière synthèse (`[  OK  ]`, ou `[ WARN ]` au-delà de 21 jours ou sans synthèse), le nombre de synthèses, les actualités pas encore citées (« à traiter »), les hors sujet, la date de la dernière collecte, et **Écrire**, qui ouvre les synthèses du sujet. En dessous : la date de la prochaine collecte.
+- **Site**, façon journal de démarrage : résultat et date de la dernière publication (`deploy.yml`) et de la dernière collecte (`veille.yml`), avec un lien vers leur journal, et la régularité des synthèses. Puis les accès rapides : site, vue jury, GoatCounter, GitHub Actions, dépôt, Search Console.
+- **Visites du site** : voir plus bas.
+
+**2. Synthèses**
 
 - **Choix du sujet** en haut de la page (← et → au clavier) ; le dernier sujet ouvert est retenu. Sous chaque sujet, l'ancienneté de la dernière synthèse (« synthèse il y a 12 j »), signalée en rouge au-delà de 21 jours ou s'il n'y en a aucune : c'est aussi le seuil du rappel envoyé chaque lundi (issue GitHub, voir le README du site).
 - **Actualités du sujet** sous le texte, en deux onglets :
@@ -19,7 +27,7 @@ Une page 100 % statique, publiée par GitHub Pages : pas de serveur, rien à hé
 
 ```
 Navigateur ──► api.github.com ──► dépôt moreauremi.github.io
-(veille.remim.me)                   │
+(dashboard.remim.me)                   │
                                     ├─ content/veille/<sujet>/syntheses.md   lu, puis réécrit : un commit par enregistrement
                                     ├─ content/veille/<sujet>/actualites.json lu (sources), réécrit pour « Hors sujet » et « Remettre »
                                     │                               ──► deploy.yml republie remim.me
@@ -50,7 +58,7 @@ L'IA utilise le secret `COPILOT_GITHUB_TOKEN` du dépôt du site, déjà en plac
 
 - **La clé GoatCounter** (lecture seule) reste elle aussi dans le navigateur et n'est envoyée qu'à GoatCounter ; « Oublier la clé » ou « Se déconnecter » l'effacent.
 - **Le jeton** reste dans le navigateur (case « Rester connecté » : `localStorage`, sinon seulement l'onglet ouvert) et n'est envoyé qu'à `api.github.com`. Il n'a accès qu'au dépôt du site, avec deux droits. « Se déconnecter » l'efface. Sans jeton, la page ne peut rien faire : elle ne contient aucun secret.
-- **Adresse à part** (`veille.remim.me`, pas `remim.me/…`) : le jeton est rangé pour cette seule origine, hors de portée du code du portfolio.
+- **Adresse à part** (`dashboard.remim.me`, pas `remim.me/…`) : le jeton est rangé pour cette seule origine, hors de portée du code du portfolio.
 - **Aucun script étranger** : politique de sécurité (CSP) stricte, la page ne charge que ses propres fichiers et ne contacte que l'API GitHub et celle de GoatCounter. Le Markdown de l'aperçu ne peut rien exécuter : le HTML écrit dans le texte est affiché tel quel, les liens `javascript:` sont neutralisés. Les textes sont affichés avec `textContent`.
 - **Pas d'affichage dans un cadre** d'un autre site (GitHub Pages ne permet pas l'en-tête qui l'interdit : la page vérifie elle-même).
 - **Pas d'écrasement** : avant d'écrire, la page relit le fichier ; s'il a changé ailleurs (modification depuis VS Code, autre onglet), rien n'est écrit, la liste est rechargée et le texte en cours conservé.

@@ -5,12 +5,12 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SUJETS, pageDuSujet } from './config.js?v=12';
-import { createClient } from './github.js?v=12';
-import { checkSynthese, citedUrls, lastSynthesisDate, parseSyntheses, serializeSyntheses, setSources } from './syntheses.js?v=12';
-import { renderPreview } from './apercu.js?v=12';
-import { forgetVisitsKey, showVisits } from './visites.js?v=12';
-import { byDate, discard, restore, usage } from './actualites.js?v=12';
+import { SUJETS, pageDuSujet } from './config.js?v=14';
+import { createClient } from './github.js?v=14';
+import { checkSynthese, citedUrls, lastSynthesisDate, parseSyntheses, serializeSyntheses, setSources } from './syntheses.js?v=14';
+import { renderPreview } from './apercu.js?v=14';
+import { forgetVisitsKey, showVisits } from './visites.js?v=14';
+import { byDate, discard, restore, usage } from './actualites.js?v=14';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';
@@ -32,6 +32,7 @@ const state = {
   newsTab: 'actuelles', // onglet des actualités : « actuelles » ou « hors-sujet »
   showUsed: false, // afficher aussi les actualités déjà citées dans une autre synthèse
   lastDates: {}, // date de la dernière synthèse de chaque sujet (AAAA-MM-JJ ou null)
+  overview: { topics: {}, runs: {} }, // vue d'ensemble : résumé de chaque sujet, dernières tâches GitHub
 };
 
 const MAX_DAYS = 21; // au-delà, un sujet est signalé en retard (comme le rappel du lundi)
@@ -80,7 +81,9 @@ function storedSujet() {
 
 function showLogin(message = '') {
   state.client = null;
-  $('dashboard').hidden = true;
+  $('view-home').hidden = true;
+  $('view-syntheses').hidden = true;
+  $('views').hidden = true;
   $('bar-links').hidden = true;
   $('login').hidden = false;
   $('login-status').textContent = message;
@@ -94,14 +97,225 @@ async function connect(token) {
   const data = await client.readFile(state.sujet);
   state.client = client;
   $('login').hidden = true;
-  $('dashboard').hidden = false;
+  $('views').hidden = false;
   $('bar-links').hidden = false;
   renderSujets();
   applyFile(data);
   if (!state.editing && !$('texte').value) startNew();
   loadNews();
-  refreshRegularity();
+  loadOverview();
   showVisits();
+  route();
+}
+
+// --- Vues : #/ (vue d'ensemble) et #/syntheses[/<sujet>] ------------------------------
+
+const HINTS = {
+  home: "1 vue d'ensemble · 2 synthèses · « Écrire » ouvre les synthèses d'un sujet",
+  syntheses: '1 vue d\'ensemble · 2 synthèses · Cmd+S / Ctrl+S publier · sélection + « Reformuler » : ce passage seulement',
+};
+
+async function route() {
+  if (!state.client) return;
+  const [, view, sujet] = window.location.hash.replace(/^#/, '').split('/');
+  const current = view === 'syntheses' ? 'syntheses' : 'home';
+  $('view-home').hidden = current !== 'home';
+  $('view-syntheses').hidden = current !== 'syntheses';
+  for (const tab of document.querySelectorAll('.view-tab')) {
+    if (tab.dataset.view === current) tab.setAttribute('aria-current', 'page');
+    else tab.removeAttribute('aria-current');
+  }
+  $('hints').textContent = HINTS[current];
+  document.title = `${current === 'home' ? "Vue d'ensemble" : 'Synthèses'} · Tableau de bord · RémiOS`;
+  if (current === 'syntheses' && SUJETS.some((s) => s.id === sujet) && sujet !== state.sujet) {
+    // Changement refusé (modifications non enregistrées) : l'adresse revient au sujet affiché
+    if (!(await openSujet(sujet))) history.replaceState(null, '', `#/syntheses/${state.sujet}`);
+  }
+}
+
+window.addEventListener('hashchange', route);
+
+// Touches 1 et 2 : changer de vue (hors des champs de saisie)
+document.addEventListener('keydown', (event) => {
+  if (!state.client || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target.closest('input, textarea, select, [contenteditable]')) return;
+  const hash = { 1: '#/', 2: `#/syntheses/${state.sujet}` }[event.key];
+  if (!hash) return;
+  event.preventDefault();
+  window.location.hash = hash;
+});
+
+// --- Vue d'ensemble : état de chaque veille, du site et des tâches automatiques --------
+
+async function loadOverview() {
+  const client = state.client;
+  $('topics-status').textContent = 'Chargement…';
+  await Promise.all([
+    ...SUJETS.map(async ({ id }) => {
+      try {
+        const [file, news] = await Promise.all([client.readFile(id), client.readNews(id)]);
+        setTopicOverview(id, parseSyntheses(file.source).syntheses, news.data);
+      } catch (error) {
+        state.overview.topics[id] = { error: error.message };
+      }
+    }),
+    ...['deploy.yml', 'veille.yml'].map(async (workflow) => {
+      try {
+        state.overview.runs[workflow] = await client.latestRun(workflow);
+      } catch (error) {
+        state.overview.runs[workflow] = { error: error.message };
+      }
+    }),
+  ]);
+  $('topics-status').textContent = '';
+  renderOverview();
+  renderAges();
+}
+
+$('overview-refresh').addEventListener('click', loadOverview);
+
+// Résumé d'un sujet : synthèses, dernière date, actualités pas encore citées
+function setTopicOverview(id, syntheses, data) {
+  const used = usage(syntheses);
+  state.lastDates[id] = lastSynthesisDate(syntheses);
+  state.overview.topics[id] = {
+    count: syntheses.length,
+    last: state.lastDates[id],
+    news: data.actualites.length,
+    todo: data.actualites.filter((a) => !used.has(a.url)).length,
+    horsSujet: (data.horsSujet ?? []).length,
+    miseAJour: data.miseAJour,
+  };
+}
+
+// Après une publication ou un « Hors sujet » : résumé du sujet affiché mis à jour
+function updateCurrentOverview() {
+  if (!state.news.data) return;
+  setTopicOverview(state.sujet, state.syntheses, state.news.data);
+  renderOverview();
+}
+
+function daysSince(date) {
+  return Math.floor((Date.parse(new Date().toISOString().slice(0, 10)) - Date.parse(date)) / 86_400_000);
+}
+
+function ageText(date) {
+  if (!date) return 'aucune synthèse';
+  const days = daysSince(date);
+  return days <= 0 ? "synthèse aujourd'hui" : days === 1 ? 'synthèse hier' : `synthèse il y a ${days} j`;
+}
+
+// « il y a 12 min », « il y a 3 h », « il y a 2 j »
+function ago(iso) {
+  const minutes = Math.round((Date.now() - Date.parse(iso)) / 60_000);
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  if (minutes < 48 * 60) return `il y a ${Math.round(minutes / 60)} h`;
+  return `il y a ${Math.round(minutes / 1440)} j`;
+}
+
+// Prochaine collecte : chaque lundi à 5 h 17 UTC (voir veille.yml du site)
+function nextCollect(now = new Date()) {
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 5, 17));
+  while (next.getUTCDay() !== 1 || next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit' }).format(next);
+}
+
+// Ligne façon journal de démarrage : [  OK  ], [ WARN ], [FAILED], [ .... ]
+function journalLine(kind, label, detail, link = null) {
+  const li = document.createElement('li');
+  li.className = `line ${kind}`;
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = { ok: '[  OK  ]', warn: '[ WARN ]', err: '[FAILED]', info: '[ .... ]' }[kind];
+  const text = document.createElement('span');
+  if (label) {
+    const strong = document.createElement('strong');
+    strong.textContent = label;
+    text.append(strong, ' ');
+  }
+  text.append(detail);
+  if (link) {
+    const a = document.createElement('a');
+    a.href = link.href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = link.text;
+    text.append(' ', a);
+  }
+  li.append(badge, text);
+  return li;
+}
+
+function renderOverview() {
+  // Veille : un sujet par ligne, avec « Écrire »
+  $('topics').replaceChildren(
+    ...SUJETS.map((sujet, index) => {
+      const info = state.overview.topics[sujet.id];
+      const li = document.createElement('li');
+      li.className = 'topic';
+      const head = document.createElement('p');
+      head.className = 'topic-head';
+      const key = document.createElement('span');
+      key.className = 'item-key';
+      key.setAttribute('aria-hidden', 'true');
+      key.textContent = String(index + 1);
+      const name = document.createElement('span');
+      name.className = 'topic-name';
+      name.textContent = sujet.nom;
+      head.append(key, name);
+
+      const meta = document.createElement('p');
+      meta.className = 'topic-meta';
+      let status;
+      if (!info) {
+        status = journalLine('info', '', 'chargement…');
+      } else if (info.error) {
+        status = journalLine('err', '', info.error);
+      } else {
+        const late = !info.last || daysSince(info.last) > MAX_DAYS;
+        status = journalLine(late ? 'warn' : 'ok', '', ageText(info.last));
+        const parts = [
+          `${info.count} synthèse${info.count > 1 ? 's' : ''}`,
+          `${info.todo} actualité${info.todo > 1 ? 's' : ''} à traiter`,
+        ];
+        if (info.horsSujet) parts.push(`${info.horsSujet} hors sujet`);
+        if (info.miseAJour) parts.push(`collecte du ${formatDay(info.miseAJour)}`);
+        meta.textContent = parts.join(' · ');
+      }
+      status.classList.add('topic-status');
+
+      const write = document.createElement('a');
+      write.className = 'tui-btn tui-btn--small';
+      write.href = `#/syntheses/${sujet.id}`;
+      write.textContent = 'Écrire';
+      write.setAttribute('aria-label', `Écrire une synthèse : ${sujet.nom}`);
+      li.append(head, status, meta, write);
+      return li;
+    }),
+  );
+  $('next-collect').textContent = `Prochaine collecte des actualités : ${nextCollect()}.`;
+
+  // Site : dernière publication, dernière collecte, rappel
+  const runs = state.overview.runs;
+  const runLine = (workflow, label, done) => {
+    const run = runs[workflow];
+    if (run === undefined) return journalLine('info', label, 'chargement…');
+    if (run?.error) return journalLine('err', label, run.error);
+    if (!run) return journalLine('info', label, 'jamais lancée');
+    const link = { href: run.html_url, text: 'journal ↗' };
+    if (run.status !== 'completed') return journalLine('info', label, `en cours (lancée ${ago(run.created_at)})`, link);
+    if (run.conclusion === 'success') return journalLine('ok', label, `${done} ${ago(run.updated_at)}`, link);
+    return journalLine('err', label, `échec ${ago(run.updated_at)}`, link);
+  };
+  const late = SUJETS.filter((s) => state.overview.topics[s.id] && !state.overview.topics[s.id].error && (!state.overview.topics[s.id].last || daysSince(state.overview.topics[s.id].last) > MAX_DAYS));
+  $('site-status').replaceChildren(
+    runLine('deploy.yml', 'Publication du site', 'réussie'),
+    runLine('veille.yml', 'Collecte de la veille', 'réussie'),
+    late.length
+      ? journalLine('warn', 'Régularité', `à écrire : ${late.map((s) => s.nom).join(', ')} (rappel par e-mail le lundi)`)
+      : journalLine('ok', 'Régularité', 'chaque sujet a une synthèse de moins de 3 semaines'),
+  );
 }
 
 // --- Choix du sujet de veille -------------------------------------------------------
@@ -153,21 +367,6 @@ function renderAges() {
   }
 }
 
-// Lit les synthèses de tous les sujets (en arrière-plan, sans bloquer la page)
-async function refreshRegularity() {
-  const client = state.client;
-  await Promise.all(
-    SUJETS.map(async ({ id }) => {
-      try {
-        state.lastDates[id] = lastSynthesisDate(parseSyntheses((await client.readFile(id)).source).syntheses);
-      } catch {
-        // sujet illisible : pas d'indication, sans gêner le reste
-      }
-    }),
-  );
-  renderAges();
-}
-
 // Au clavier : ← et → passent d'un sujet à l'autre
 $('sujets').addEventListener('keydown', (event) => {
   const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
@@ -177,9 +376,11 @@ $('sujets').addEventListener('keydown', (event) => {
   openSujet(SUJETS[(index + step + SUJETS.length) % SUJETS.length].id, { focus: true });
 });
 
+// Ouvre les synthèses d'un sujet ; false si le changement est refusé
 async function openSujet(id, { focus = false } = {}) {
-  if (id === state.sujet || state.busy) return;
-  if (isDirty() && !confirm('Des modifications ne sont pas enregistrées. Changer de sujet quand même ?')) return;
+  if (id === state.sujet) return true;
+  if (state.busy) return false;
+  if (isDirty() && !confirm('Des modifications ne sont pas enregistrées. Changer de sujet quand même ?')) return false;
   const previous = state.sujet;
   state.sujet = id;
   try {
@@ -204,6 +405,8 @@ async function openSujet(id, { focus = false } = {}) {
     state.sujet = previous;
     renderSujets();
   }
+  if (!$('view-syntheses').hidden) history.replaceState(null, '', `#/syntheses/${state.sujet}`);
+  return loaded;
 }
 
 $('login-form').addEventListener('submit', async (event) => {
@@ -240,6 +443,7 @@ function applyData({ version, syntheses }) {
   state.lastDates[state.sujet] = lastSynthesisDate(syntheses);
   renderAges();
   renderNews();
+  updateCurrentOverview();
   // La synthèse en cours de modification a pu changer de place (ajout ou
   // suppression ailleurs) : on la retrouve par son titre.
   if (state.editing) {
@@ -386,7 +590,7 @@ $('editor-form').addEventListener('submit', (event) => {
 
 // Cmd+S / Ctrl+S : enregistrer
 document.addEventListener('keydown', (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key === 's' && !$('dashboard').hidden) {
+  if ((event.metaKey || event.ctrlKey) && event.key === 's' && !$('view-syntheses').hidden) {
     event.preventDefault();
     save();
   }
@@ -594,6 +798,7 @@ async function loadNews() {
 function setNews(data, version) {
   state.news = { data, version, items: [...data.actualites].sort(byDate) };
   renderNews();
+  updateCurrentOverview();
 }
 
 // Synthèses publiées, sauf celle en cours de modification
