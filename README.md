@@ -96,6 +96,10 @@ npm run version  # après chaque modification de la page, avant de l'envoyer
 
 Attention : même en local, **Publier écrit sur le dépôt du site et le republie**. Penser à `git pull` dans le dossier du portfolio avant d'y modifier `syntheses.md` à la main.
 
+## Réalisation
+
+Réalisé avec [Claude Code](https://claude.com/claude-code). Mon rôle : définir le besoin, faire les choix et tester.
+
 ## Crédits
 
 - [marked](https://github.com/markedjs/marked) (licence MIT), copié dans `vendor/` : conversion Markdown, la même que celle du site.
