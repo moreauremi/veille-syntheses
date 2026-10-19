@@ -47,6 +47,12 @@
   --tui-field-bg: #ffffff;
   --tui-field-border: #5a5a5a;
   --warn: #f2c14e;            /* contour de focus sur le fond bleu */
+  /* Carte des visiteurs : gris sans visiteur, puis du bleu clair au bleu foncé,
+     dans la teinte du bleu de l'écran (validés : clarté régulière, le bleu
+     clair ressort à 2,3:1 sur la boîte) */
+  --map-none: #b0b0b0;
+  --map-low: #6587d2;         /* un visiteur */
+  --map-high: #091d58;        /* le pays qui en a le plus */
 
   --font-mono: 'IBM Plex Mono', ui-monospace, 'DejaVu Sans Mono', Menlo, Consolas, monospace;
   --font-size: 0.875rem;
@@ -1182,4 +1188,96 @@ body.busy .news-check {
   .visits-content {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Pays des visiteurs, sur toute la largeur : la carte dans la colonne du
+   graphique, les pays les plus représentés dans celle des pages */
+.visits-geo {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: 8px;
+  margin-top: 16px;
+}
+
+.visits-geo-title {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.map {
+  position: relative;
+}
+
+.map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Pays : gris sans visiteur ; visité, de plus en plus bleu (--shade, de 0 à 1,
+   posé par visites.js) */
+.map .country {
+  fill: var(--map-none);
+  stroke: var(--tui-box);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  outline: none;
+}
+
+.map .country.visited {
+  fill: var(--map-low);
+  fill: color-mix(in oklch, var(--map-high) calc(var(--shade) * 100%), var(--map-low));
+}
+
+.map .dot {
+  stroke-width: 1;
+}
+
+/* Pays survolé ou atteint au clavier : contour noir, par-dessus ses voisins */
+.map-highlight {
+  fill: none;
+  stroke: var(--tui-ink);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.map-tooltip {
+  bottom: auto;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  margin: 8px 0 0;
+  color: var(--tui-muted);
+  font-size: var(--font-size-small);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-none,
+.legend-ramp {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  background: var(--map-none);
+}
+
+.legend-ramp {
+  width: 96px;
+  background: linear-gradient(to right, var(--map-low), var(--map-high));
+  background: linear-gradient(in oklch to right, var(--map-low), var(--map-high));
+}
+
+.legend-ramp.single {
+  width: 14px;
+  background: var(--map-low);
 }

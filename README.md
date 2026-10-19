@@ -19,7 +19,7 @@ Page privée pour piloter mon portfolio [remim.me](https://remim.me) sans ouvrir
 - **Reformuler avec l'IA** : sélectionner un passage (sans sélection : tout le texte). L'IA propose une version plus claire, à accepter (**Remplacer**) ou non (**Garder mon texte**) ; Cmd+Z / Ctrl+Z annule un remplacement. Consignes données à l'IA : garder le sens, les faits, les chiffres, les noms et les liens, ne rien ajouter.
 - **Aperçu** avec le même rendu Markdown que le site.
 - **Publier** (ou Cmd+S / Ctrl+S) : un commit sur le dépôt du site, qui se republie tout seul en 2 à 3 minutes.
-- **Visites du site** : période de 7, 30 ou 90 jours (une colonne par jour, par semaine sur 90 jours), visiteurs de la période et d'aujourd'hui, graphique (valeur et date au survol ou au clavier, tableau « Voir les chiffres »), pages les plus vues, provenance des visiteurs (moteurs de recherche, LinkedIn, accès direct…). Les chiffres viennent de GoatCounter, lus avec une clé d'API en lecture seule collée une fois dans la page. GoatCounter accepte 4 requêtes par seconde, et chaque requête du navigateur compte double (vérification CORS comprise) : les requêtes passent donc par une file, espacées de 0,7 s, retentées après 1 s en cas de refus, et celles d'une période abandonnée ne partent pas.
+- **Visites du site** : période de 7, 30 ou 90 jours (une colonne par jour, par semaine sur 90 jours), visiteurs de la période et d'aujourd'hui, graphique (valeur et date au survol ou au clavier, tableau « Voir les chiffres »), pages les plus vues, provenance des visiteurs (moteurs de recherche, LinkedIn, accès direct…), et **carte des pays** des visiteurs : en gris les pays sans visiteur, les autres de plus en plus bleus, jusqu'au bleu foncé pour celui qui en compte le plus (même teinte que le bleu de RémiOS ; échelle logarithmique, pour que la France n'écrase pas tous les autres dans le bleu clair). Nombre de visiteurs au survol ou au clavier, pays les plus représentés à côté ; les pays trop petits pour la carte (Luxembourg, Monaco, Singapour…) y sont marqués d'un point quand ils ont des visiteurs. Les chiffres viennent de GoatCounter, lus avec une clé d'API en lecture seule collée une fois dans la page. GoatCounter accepte 4 requêtes par seconde, et chaque requête du navigateur compte double (vérification CORS comprise) : les requêtes passent donc par une file, espacées de 0,7 s, retentées après 1 s en cas de refus, et celles d'une période abandonnée ne partent pas.
 
 ## Principe
 
@@ -73,14 +73,15 @@ app.js               comportement de la page
 config.js            dépôt du site, sujets de veille (à garder identiques à veille.sujets du site), workflow
 github.js            API GitHub : lecture et écriture du fichier, reformulation
 actualites.js        actualités d'un sujet : « Hors sujet », « Remettre », actualités déjà utilisées
-stats.js             API GoatCounter : visites par jour, pages les plus vues ; géométrie du graphique
-visites.js           boîte « Visites du site » : chiffres clés, graphique SVG, tableau, pages
+stats.js             API GoatCounter : visites par jour, pages les plus vues, pays ; géométrie du graphique, teinte des pays
+visites.js           boîte « Visites du site » : chiffres clés, graphique SVG, tableau, pages, carte des pays
+carte.js             fond de carte du monde : un tracé SVG par pays (fichier généré, voir son en-tête)
 syntheses.js         format des fichiers syntheses.md (une synthèse par titre « ## »)
 apercu.js            aperçu Markdown, au plus près du rendu du site
 fonts/               IBM Plex Mono (400 et 600), la police du portfolio, licence OFL
 vendor/              marked (conversion Markdown, licence MIT)
 scripts/version.mjs  numéro de version des fichiers (npm run version), contre le cache des navigateurs
-test/                tests (npm test) : format, fausses API GitHub et GoatCounter, graphique, aperçu, versions
+test/                tests (npm test) : format, fausses API GitHub et GoatCounter, graphique, teinte de la carte, aperçu, versions
 CNAME                domaine de la page pour GitHub Pages
 ```
 
@@ -104,4 +105,5 @@ Réalisé avec [Claude Code](https://claude.com/claude-code). Mon rôle : défin
 
 - [marked](https://github.com/markedjs/marked) (licence MIT), copié dans `vendor/` : conversion Markdown, la même que celle du site.
 - [IBM Plex Mono](https://github.com/IBM/plex) (licence SIL Open Font License, `fonts/OFL.txt`), copiée du portfolio.
+- Fond de carte (`carte.js`) : contours des pays [Natural Earth](https://www.naturalearthdata.com) (domaine public), pris dans [world-atlas](https://github.com/topojson/world-atlas) (licence ISC), simplifiés.
 - Code sous licence MIT (voir `LICENSE`).

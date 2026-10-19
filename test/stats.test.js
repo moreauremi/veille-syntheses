@@ -2,11 +2,11 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { byWeek, chartGeometry, createStatsClient, lastDays, niceMax } from '../stats.js';
+import { byWeek, chartGeometry, createStatsClient, lastDays, mapShade, niceMax } from '../stats.js';
 
 const TODAY = new Date('2026-10-09T15:30:00Z');
 
-function fakeGoatCounter({ status = 200 } = {}) {
+function fakeGoatCounter({ status = 200, locationsStatus = 200 } = {}) {
   const calls = [];
   const json = (data, code = 200) => new Response(JSON.stringify(data), { status: code, headers: { 'Content-Type': 'application/json' } });
   const fetch = async (url, { headers }) => {
@@ -17,6 +17,10 @@ function fakeGoatCounter({ status = 200 } = {}) {
       return json({ total: 11, total_events: 2, stats: [{ day: '2026-10-07', daily: 4 }, { day: '2026-10-09', daily: 5 }, { day: '2026-10-10', daily: 0 }] });
     }
     if (u.pathname === '/api/v0/stats/toprefs') return json({ stats: [{ name: 'linkedin.com', count: 3 }, { name: '', count: 2 }] });
+    if (u.pathname === '/api/v0/stats/locations') {
+      if (locationsStatus !== 200) return json({ error: 'panne' }, locationsStatus);
+      return json({ stats: [{ id: 'FR', name: 'France', count: 7 }, { id: '(unknown)', name: '(unknown)', count: 1 }], more: false });
+    }
     return json({ hits: [{ path: '/veille', count: 6 }, { path: 'clic', count: 2, event: true }, { path: '/', count: 3 }] });
   };
   return { fetch, calls };
@@ -47,7 +51,7 @@ test('graphique : colonnes de 24 px au plus, 2 px d’écart, hauteur proportion
 test('chargement : bonne période, clé envoyée, jours sans visite à 0, pages sans les événements', async () => {
   const gc = fakeGoatCounter();
   const stats = await createStatsClient('cle', { fetch: gc.fetch, today: TODAY, gap: 0, retryDelay: 0 }).load(30);
-  assert.deepEqual(gc.calls.map((c) => c.path).sort(), ['/api/v0/stats/hits', '/api/v0/stats/toprefs', '/api/v0/stats/total']);
+  assert.deepEqual(gc.calls.map((c) => c.path).sort(), ['/api/v0/stats/hits', '/api/v0/stats/locations', '/api/v0/stats/toprefs', '/api/v0/stats/total']);
   assert.ok(gc.calls.every((c) => c.auth === 'Bearer cle'));
   assert.deepEqual([gc.calls[0].params.start, gc.calls[0].params.end], ['2026-09-10T00:00:00Z', '2026-10-10T00:00:00Z']);
   assert.equal(stats.days.length, 30);
@@ -56,6 +60,9 @@ test('chargement : bonne période, clé envoyée, jours sans visite à 0, pages 
   assert.equal(stats.today, 5);
   assert.deepEqual(stats.pages, [{ path: '/veille', count: 6 }, { path: '/', count: 3 }]);
   assert.deepEqual(stats.refs, [{ name: 'linkedin.com', count: 3 }, { name: '', count: 2 }]);
+  assert.deepEqual(stats.countries, [{ code: 'FR', name: 'France', count: 7 }, { code: '', name: '(unknown)', count: 1 }], 'pays inconnu : code vide');
+  assert.equal(gc.calls.find((c) => c.path.endsWith('/locations')).params.limit, '100', 'tous les pays, pas seulement les premiers');
+  assert.equal(stats.countriesError, null);
   assert.equal(stats.bars, stats.days, '30 jours : une colonne par jour');
 });
 
@@ -84,11 +91,29 @@ test('limite de GoatCounter : requêtes espacées, nouvel essai après un refus 
     if (calls === 1) throw new TypeError('NetworkError when attempting to fetch resource.');
     if (calls === 2) return new Response('{}', { status: 429 });
     const u = new URL(url);
-    const body = u.pathname.endsWith('/total') ? { total: 1, stats: [] } : u.pathname.endsWith('/toprefs') ? { stats: [] } : { hits: [] };
+    const body = u.pathname.endsWith('/total') ? { total: 1, stats: [] } : u.pathname.endsWith('/hits') ? { hits: [] } : { stats: [] };
     return new Response(JSON.stringify(body), { status: 200 });
   };
   const stats = await createStatsClient('cle', { fetch, today: TODAY, gap: 40, retryDelay: 0 }).load(7);
   assert.equal(stats.total, 1, 'chargé malgré une erreur réseau puis un 429');
-  assert.equal(calls, 5, '3 requêtes + 2 nouveaux essais');
+  assert.equal(calls, 6, '4 requêtes + 2 nouveaux essais');
   for (let i = 1; i < times.length; i++) assert.ok(times[i] - times[i - 1] >= 35, 'requêtes espacées');
+});
+
+test('pays indisponibles : le reste des visites s’affiche quand même', async () => {
+  const gc = fakeGoatCounter({ locationsStatus: 500 });
+  const stats = await createStatsClient('cle', { fetch: gc.fetch, today: TODAY, gap: 0, retryDelay: 0 }).load(30);
+  assert.equal(stats.total, 9);
+  assert.deepEqual(stats.countries, []);
+  assert.match(stats.countriesError, /500/);
+});
+
+test('carte : gris sans visiteur, puis de plus en plus bleu, sur une échelle logarithmique', () => {
+  assert.equal(mapShade(0, 200), null, 'aucun visiteur : gris');
+  assert.equal(mapShade(1, 200), 0, 'un visiteur : le bleu le plus clair');
+  assert.equal(mapShade(200, 200), 1, 'le pays le plus représenté : le bleu le plus foncé');
+  assert.ok(Math.abs(mapShade(Math.sqrt(200), 200) - 0.5) < 1e-9, 'à mi-chemin sur l’échelle logarithmique');
+  const shades = [1, 2, 5, 20, 80, 200].map((count) => mapShade(count, 200));
+  assert.ok(shades.every((shade, i) => i === 0 || shade > shades[i - 1]), 'plus de visiteurs, plus foncé');
+  assert.equal(mapShade(1, 1), 0, 'un seul visiteur au plus : bleu clair partout');
 });

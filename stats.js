@@ -7,10 +7,11 @@
 // saisie dans la page. Aucune donnée personnelle : seulement des totaux.
 //
 // Ce module ne touche pas à la page : il récupère les chiffres et calcule la
-// géométrie du graphique (testée sans navigateur, voir test/stats.test.js).
+// géométrie du graphique et la teinte des pays sur la carte (testées sans
+// navigateur, voir test/stats.test.js).
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=16';
+import { GOATCOUNTER } from './config.js?v=17';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -85,9 +86,11 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
     // Les `days` derniers jours, aujourd'hui compris → { days: [{ day, count }],
     // bars (par jour, ou par semaine au-delà de 31 jours), total, today,
     // pages: [{ path, count }], refs: [{ name, count }] (provenance des
-    // visiteurs ; nom vide = sans site d'origine), refsError (message si la
-    // provenance n'a pas pu être lue : le reste s'affiche quand même).
-    // Les jours sans visite valent 0.
+    // visiteurs ; nom vide = sans site d'origine), countries: [{ code, name,
+    // count }] (pays des visiteurs, du plus au moins représenté ; code ISO à
+    // deux lettres, vide si le pays est inconnu), refsError et countriesError
+    // (message si la provenance ou les pays n'ont pas pu être lus : le reste
+    // s'affiche quand même). Les jours sans visite valent 0.
     // `signal` : AbortSignal, pour abandonner le chargement (période changée)
     async load(days = 30, { signal } = {}) {
       const list = lastDays(today, days);
@@ -96,13 +99,17 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
         start: `${list[0]}T00:00:00Z`,
         end: `${isoDay(new Date(Date.parse(`${list.at(-1)}T00:00:00Z`) + DAY))}T00:00:00Z`,
       };
-      const [totals, hits, refs] = await Promise.all([
+      // Provenance et pays : facultatifs, leur erreur n'empêche pas le reste
+      const optional = (error) => {
+        if (error.name === 'AbortError') throw error;
+        return { error };
+      };
+      const [totals, hits, refs, locations] = await Promise.all([
         request('stats/total', range, signal),
         request('stats/hits', { ...range, limit: '5' }, signal),
-        request('stats/toprefs', { ...range, limit: '6' }, signal).catch((error) => {
-          if (error.name === 'AbortError') throw error;
-          return { error };
-        }),
+        request('stats/toprefs', { ...range, limit: '6' }, signal).catch(optional),
+        // 100 : le plus que GoatCounter donne en une fois
+        request('stats/locations', { ...range, limit: '100' }, signal).catch(optional),
       ]);
       const byDay = new Map((totals.stats ?? []).map((s) => [s.day, s.daily ?? 0]));
       const series = list.map((day) => ({ day, count: byDay.get(day) ?? 0 }));
@@ -117,6 +124,13 @@ export function createStatsClient(key, { fetch = globalThis.fetch.bind(globalThi
         pages: (hits.hits ?? []).filter((h) => !h.event).map((h) => ({ path: h.path, count: h.count ?? 0 })),
         refs: (refs.stats ?? []).map((r) => ({ name: r.name ?? '', count: r.count ?? 0 })),
         refsError: refs.error?.message ?? null,
+        // Pays inconnu : GoatCounter met « (unknown) » à la place du code
+        countries: (locations.stats ?? []).map((l) => ({
+          code: /^[A-Z]{2}$/.test(l.id) ? l.id : '',
+          name: l.name ?? '',
+          count: l.count ?? 0,
+        })),
+        countriesError: locations.error?.message ?? null,
       };
     },
   };
@@ -163,6 +177,16 @@ export function niceMax(max) {
   if (max <= 1) return 1;
   const power = 10 ** Math.floor(Math.log10(max));
   return [1, 2, 5, 10].map((step) => step * power).find((value) => value >= max);
+}
+
+// Teinte d'un pays sur la carte : de 0 (un visiteur, bleu clair) à 1 (le pays
+// qui en a le plus, bleu foncé), sur une échelle logarithmique : sans elle, le
+// pays le plus fort (la France) laisserait tous les autres au même bleu clair.
+// null : aucun visiteur (gris).
+export function mapShade(count, max) {
+  if (!(count > 0)) return null;
+  if (max <= 1) return 0;
+  return Math.min(1, Math.log(count) / Math.log(max));
 }
 
 // Géométrie du graphique en colonnes, en pixels, pour une largeur donnée :

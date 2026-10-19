@@ -1,16 +1,19 @@
 // =============================================================================
 // Boîte « Visites du site » : période (7, 30 ou 90 jours), chiffres clés,
-// graphique, tableau des chiffres, pages les plus vues et provenance des
-// visiteurs (données : stats.js)
+// graphique, tableau des chiffres, pages les plus vues, provenance et carte des
+// pays des visiteurs (données : stats.js ; fond de carte : carte.js)
 // -----------------------------------------------------------------------------
-// Le graphique est un SVG construit élément par élément : les textes (dates,
-// adresses des pages) passent par textContent, jamais par du HTML. Chaque jour
-// a sa zone de survol (toute la hauteur) et se lit aussi au clavier ; tous les
-// chiffres restent lisibles sans survol, dans le tableau « Voir les chiffres ».
+// Le graphique et la carte sont des SVG construits élément par élément : les
+// textes (dates, adresses des pages) passent par textContent, jamais par du
+// HTML. Chaque jour a sa zone de survol (toute la hauteur) et se lit aussi au
+// clavier ; tous les chiffres restent lisibles sans survol, dans le tableau
+// « Voir les chiffres ». Sur la carte, chaque pays visité se lit au survol et
+// au clavier, et les plus représentés sont listés à côté.
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=16';
-import { chartGeometry, createStatsClient } from './stats.js?v=16';
+import { COUNTRIES, MAP_HEIGHT, MAP_WIDTH } from './carte.js?v=17';
+import { GOATCOUNTER } from './config.js?v=17';
+import { chartGeometry, createStatsClient, mapShade } from './stats.js?v=17';
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORAGE = 'syntheses-goatcounter';
@@ -21,10 +24,13 @@ const TOP = 16; // marge au-dessus des colonnes, pour l'étiquette du jour le pl
 const AXIS_HEIGHT = 22;
 const LEFT = 28; // place des graduations de l'axe vertical
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const COUNTRY_LIST = 6; // pays listés à côté de la carte
+const DOT = 4; // rayon du point des pays trop petits pour la carte (px de la carte)
 
 const dayLabel = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 const shortLabel = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const number = new Intl.NumberFormat('fr-FR');
+const countryName = new Intl.DisplayNames(['fr'], { type: 'region' });
 const asDate = (day) => new Date(`${day}T00:00:00Z`);
 
 let data = null; // dernières statistiques chargées, pour redessiner à la bonne largeur
@@ -164,6 +170,7 @@ function renderLabels() {
   $('visits-total-label').textContent = `Visiteurs, ${period} derniers jours`;
   $('visits-pages-title').textContent = `Pages les plus vues (${period} jours)`;
   $('visits-refs-title').textContent = `Provenance (${period} jours)`;
+  $('visits-countries-title').textContent = `Visiteurs par pays (${period} jours)`;
   $('visits-table-head').textContent = weekly() ? 'Semaine' : 'Jour';
 }
 
@@ -175,6 +182,8 @@ function render() {
   renderTable();
   renderPages();
   renderRefs();
+  renderMap();
+  renderCountries();
 }
 
 // --- Graphique ---------------------------------------------------------------------
@@ -278,21 +287,22 @@ function renderTable() {
   );
 }
 
+// Ligne d'une liste : le libellé, et le nombre aligné à droite
+function countItem(label, value) {
+  const item = document.createElement('li');
+  const name = document.createElement('span');
+  name.className = 'page-path';
+  name.textContent = label;
+  const count = document.createElement('span');
+  count.className = 'page-count';
+  count.textContent = number.format(value);
+  item.append(name, count);
+  return item;
+}
+
 function renderPages() {
   $('visits-pages-empty').hidden = data.pages.length > 0;
-  $('visits-pages').replaceChildren(
-    ...data.pages.map((page) => {
-      const item = document.createElement('li');
-      const path = document.createElement('span');
-      path.className = 'page-path';
-      path.textContent = page.path;
-      const count = document.createElement('span');
-      count.className = 'page-count';
-      count.textContent = number.format(page.count);
-      item.append(path, count);
-      return item;
-    }),
-  );
+  $('visits-pages').replaceChildren(...data.pages.map((page) => countItem(page.path, page.count)));
   $('visits-link').href = GOATCOUNTER;
 }
 
@@ -301,18 +311,116 @@ function renderPages() {
 function renderRefs() {
   $('visits-refs-empty').hidden = data.refs.length > 0 && !data.refsError;
   $('visits-refs-empty').textContent = data.refsError ? `Provenance indisponible : ${data.refsError}` : 'Aucune visite pour l\'instant.';
-  $('visits-refs').replaceChildren(
-    ...data.refs.map((ref) => {
-      const item = document.createElement('li');
-      const name = document.createElement('span');
-      name.className = 'page-path';
-      name.textContent = ref.name || 'Accès direct';
-      const count = document.createElement('span');
-      count.className = 'page-count';
-      count.textContent = number.format(ref.count);
-      item.append(name, count);
-      return item;
-    }),
+  $('visits-refs').replaceChildren(...data.refs.map((ref) => countItem(ref.name || 'Accès direct', ref.count)));
+}
+
+// --- Carte des pays ----------------------------------------------------------------
+// Pays sans visiteur en gris, les autres de plus en plus bleus avec le nombre
+// de visiteurs (teinte : mapShade dans stats.js, couleurs : style.css)
+
+let mapCountries = new Map(); // code → pays de la carte (nombre, point de la bulle)
+let mapHighlight = null; // contour du pays survolé, par-dessus les autres
+
+// Nom du pays en français (« Allemagne »), à partir de son code
+const countryLabel = (code) => (code ? countryName.of(code) : 'Pays inconnu');
+const visitors = (count) => (count > 0 ? `${number.format(count)} visiteur${count > 1 ? 's' : ''}` : 'aucun visiteur');
+
+// Cercle, en tracé SVG : se met en évidence comme les pays
+const circlePath = (x, y, r) => `M${x - r},${y}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0z`;
+
+// Pays visité : coloré, et atteint au clavier
+function markVisited(shape, country, shade) {
+  shape.classList.add('visited');
+  shape.style.setProperty('--shade', shade.toFixed(3));
+  shape.setAttribute('tabindex', '0');
+  shape.setAttribute('role', 'img');
+  shape.setAttribute('aria-label', `${countryLabel(country.code)} : ${visitors(country.count)}`);
+}
+
+function renderMap() {
+  const counts = new Map(data.countries.filter((c) => c.code).map((c) => [c.code, c.count]));
+  const max = Math.max(0, ...counts.values());
+  const root = svg('svg', { viewBox: `0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`, role: 'group' });
+  root.setAttribute('aria-label', `Visiteurs par pays, ${period} derniers jours`);
+
+  // Les pays sans visiteur d'abord, puis les autres, du plus au moins
+  // représenté (l'ordre du clavier), et enfin, par-dessus, les points des pays
+  // trop petits pour se voir
+  const countries = COUNTRIES.map(([code, d, x, y, small]) => ({ code, d, x, y, small, count: counts.get(code) ?? 0 }))
+    .sort((a, b) => (a.count > 0) - (b.count > 0) || b.count - a.count);
+  const dots = [];
+  mapCountries = new Map();
+  for (const country of countries) {
+    mapCountries.set(country.code, country);
+    const shade = mapShade(country.count, max);
+    const shape = svg('path', { d: country.d, class: 'country', 'data-code': country.code });
+    if (shade !== null && country.small) {
+      shape.classList.add('visited');
+      shape.style.setProperty('--shade', shade.toFixed(3));
+      const dot = svg('path', { d: circlePath(country.x, country.y, DOT), class: 'country dot', 'data-code': country.code });
+      markVisited(dot, country, shade);
+      dots.push(dot);
+    } else if (shade !== null) {
+      markVisited(shape, country, shade);
+    }
+    if (country.d) root.append(shape);
+  }
+  mapHighlight = svg('path', { class: 'map-highlight' });
+  root.append(...dots, mapHighlight);
+
+  root.addEventListener('pointerover', (event) => {
+    const shape = event.target.closest('[data-code]');
+    if (shape) showCountry(shape);
+    else hideCountry();
+  });
+  root.addEventListener('pointerleave', hideCountry);
+  root.addEventListener('focusin', (event) => showCountry(event.target));
+  root.addEventListener('focusout', hideCountry);
+
+  $('visits-map-tooltip').hidden = true;
+  $('visits-map').replaceChildren(root, $('visits-map-tooltip'));
+
+  // Légende : gris, puis le dégradé de 1 visiteur au maximum (une seule
+  // case de bleu clair quand aucun pays n'a plus d'un visiteur)
+  $('visits-legend').hidden = max === 0;
+  $('visits-legend-min').hidden = max <= 1;
+  $('visits-legend-ramp').classList.toggle('single', max <= 1);
+  $('visits-legend-max').textContent = visitors(max);
+}
+
+// Bulle au-dessus du pays (en dessous s'il touche le haut de la carte), sans
+// sortir de la carte, et contour du pays mis en évidence
+function showCountry(shape) {
+  const country = mapCountries.get(shape.dataset.code);
+  if (!country || data.countriesError) return; // pays non lus : rien à afficher
+  mapHighlight.setAttribute('d', shape.getAttribute('d'));
+  const tooltip = $('visits-map-tooltip');
+  const value = document.createElement('strong');
+  value.textContent = visitors(country.count);
+  const name = document.createElement('span');
+  name.textContent = countryLabel(country.code);
+  tooltip.replaceChildren(value, name);
+  tooltip.hidden = false;
+  const width = $('visits-map').clientWidth;
+  const scale = width / MAP_WIDTH;
+  const left = Math.min(Math.max(country.x * scale - tooltip.offsetWidth / 2, 0), width - tooltip.offsetWidth);
+  const above = country.y * scale - tooltip.offsetHeight - 8;
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${above >= 0 ? above : country.y * scale + 8}px`;
+}
+
+function hideCountry() {
+  $('visits-map-tooltip').hidden = true;
+  mapHighlight?.setAttribute('d', '');
+}
+
+// Pays les plus représentés, à côté de la carte (avec ceux qu'elle ne
+// montre pas : pays inconnu, Antarctique…)
+function renderCountries() {
+  $('visits-countries-empty').hidden = data.countries.length > 0 && !data.countriesError;
+  $('visits-countries-empty').textContent = data.countriesError ? `Pays indisponibles : ${data.countriesError}` : 'Aucune visite pour l\'instant.';
+  $('visits-countries').replaceChildren(
+    ...data.countries.slice(0, COUNTRY_LIST).map((country) => countItem(countryLabel(country.code), country.count)),
   );
 }
 

@@ -10,8 +10,8 @@
     <title>Tableau de bord · RémiOS</title>
     <link rel="icon" href="data:,">
     <link rel="preload" href="fonts/ibm-plex-mono-400.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=16">
-    <script type="module" src="app.js?v=16"></script>
+    <link rel="stylesheet" href="style.css?v=17">
+    <script type="module" src="app.js?v=17"></script>
   </head>
   <body>
     <header class="tui-bar">
@@ -145,6 +145,23 @@
                 <h3 class="panel-title pages-title" id="visits-refs-title">Provenance (30 jours)</h3>
                 <p class="hint" id="visits-refs-empty" hidden>Aucune visite pour l'instant.</p>
                 <ol class="pages" id="visits-refs"></ol>
+              </div>
+              <!-- Pays des visiteurs : la carte à gauche, les pays les plus représentés à droite -->
+              <div class="visits-geo">
+                <h3 class="panel-title visits-geo-title" id="visits-countries-title">Visiteurs par pays (30 jours)</h3>
+                <div class="visits-map">
+                  <div class="map" id="visits-map">
+                    <div class="chart-tooltip map-tooltip" id="visits-map-tooltip" hidden></div>
+                  </div>
+                  <p class="map-legend" id="visits-legend">
+                    <span class="legend-item"><span class="legend-none"></span>aucun visiteur</span>
+                    <span class="legend-item"><span id="visits-legend-min">1</span><span class="legend-ramp" id="visits-legend-ramp"></span><span id="visits-legend-max">–</span></span>
+                  </p>
+                </div>
+                <div class="visits-countries">
+                  <p class="hint" id="visits-countries-empty" hidden>Aucune visite pour l'instant.</p>
+                  <ol class="pages" id="visits-countries"></ol>
+                </div>
               </div>
               <p class="status" id="visits-error" role="status"></p>
               <p class="hint visits-foot"><span id="visits-updated"></span> <a id="visits-link" href="https://remim.goatcounter.com" target="_blank" rel="noopener noreferrer">Tout voir sur GoatCounter ↗</a></p>
