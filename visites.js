@@ -11,9 +11,9 @@
 // au clavier, et les plus représentés sont listés à côté.
 // =============================================================================
 
-import { COUNTRIES, MAP_HEIGHT, MAP_WIDTH } from './carte.js?v=17';
-import { GOATCOUNTER } from './config.js?v=17';
-import { chartGeometry, createStatsClient, mapShade } from './stats.js?v=17';
+import { COUNTRIES, MAP_HEIGHT, MAP_WIDTH } from './carte.js?v=18';
+import { GOATCOUNTER } from './config.js?v=18';
+import { chartGeometry, createStatsClient, mapShade } from './stats.js?v=18';
 
 const $ = (id) => document.getElementById(id);
 const KEY_STORAGE = 'syntheses-goatcounter';

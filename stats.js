@@ -11,7 +11,7 @@
 // navigateur, voir test/stats.test.js).
 // =============================================================================
 
-import { GOATCOUNTER } from './config.js?v=17';
+import { GOATCOUNTER } from './config.js?v=18';
 
 const DAY = 24 * 60 * 60 * 1000;
 

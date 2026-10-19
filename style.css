@@ -1190,14 +1190,20 @@ body.busy .news-check {
   }
 }
 
-/* Pays des visiteurs, sur toute la largeur : la carte dans la colonne du
-   graphique, les pays les plus représentés dans celle des pages */
+/* Pays des visiteurs, sur toute la largeur : la carte, en petit et encadrée
+   comme les rubriques du menu, et juste à côté les pays les plus représentés */
 .visits-geo {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  row-gap: 8px;
+  grid-template-columns: minmax(0, 28rem) minmax(14rem, 22rem);
+  gap: 8px 32px;
   margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .visits-geo {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .visits-geo-title {
@@ -1207,6 +1213,7 @@ body.busy .news-check {
 
 .map {
   position: relative;
+  border: 1px solid var(--tui-inner-border);
 }
 
 .map svg {

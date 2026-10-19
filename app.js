@@ -5,12 +5,12 @@
 // fabriqué par apercu.js (HTML du texte neutralisé), est inséré en HTML.
 // =============================================================================
 
-import { SUJETS, pageDuSujet } from './config.js?v=17';
-import { createClient } from './github.js?v=17';
-import { checkSynthese, citedUrls, lastSynthesisDate, parseSyntheses, serializeSyntheses, setSources } from './syntheses.js?v=17';
-import { renderPreview } from './apercu.js?v=17';
-import { forgetVisitsKey, showVisits } from './visites.js?v=17';
-import { byDate, discard, restore, usage } from './actualites.js?v=17';
+import { SUJETS, pageDuSujet } from './config.js?v=18';
+import { createClient } from './github.js?v=18';
+import { checkSynthese, citedUrls, lastSynthesisDate, parseSyntheses, serializeSyntheses, setSources } from './syntheses.js?v=18';
+import { renderPreview } from './apercu.js?v=18';
+import { forgetVisitsKey, showVisits } from './visites.js?v=18';
+import { byDate, discard, restore, usage } from './actualites.js?v=18';
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'syntheses-jeton';
